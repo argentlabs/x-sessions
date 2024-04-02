@@ -1,7 +1,7 @@
 {
   "branches": [
     "main",
-    "hotfix\/v[0-9]+.[0-9]+.[0-9]+",
+    "hotfix/v[0-9]+.[0-9]+.[0-9]+",
     {
       "name": "develop",
       "channel": "next"
@@ -27,5 +27,5 @@
     ],
     "@semantic-release/github"
   ],
-  "repositoryUrl": "git@github.com:argentlabs/x-shared.git"
+  "repositoryUrl": "git@github.com:argentlabs/x-sessions.git"
 }
