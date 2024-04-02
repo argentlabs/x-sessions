@@ -21,6 +21,7 @@ import {
   stark,
 } from "starknet"
 import { ensureArray } from "./ensureArray"
+import { OffchainSessionCall, OffchainSessionDetails } from "./interface"
 
 const OFFCHAIN_SESSION_ENTRYPOINT = "use_offchain_session"
 
@@ -39,7 +40,10 @@ export class OffchainSessionAccount
     super(providerOrOptions, address, pkOrSigner, "1")
   }
 
-  private async sessionToCall(dappSignature: Signature): Promise<Call> {
+  private async sessionToCall(
+    dappSignature: Signature,
+    offchainSessionDetails: OffchainSessionDetails,
+  ): Promise<OffchainSessionCall> {
     const signature = stark.formatSignature(this.sessionSignature)
     const formattedDappSignature = stark.formatSignature(dappSignature)
 
@@ -57,14 +61,19 @@ export class OffchainSessionAccount
         token5: signature[2],
         token6: signature[3],
       }),
+      offchainSessionDetails,
     }
   }
 
   private async extendCallsBySession(
     calls: Call[],
     dappSignature: Signature,
-  ): Promise<Call[]> {
-    const sessionCall = await this.sessionToCall(dappSignature)
+    offchainSessionDetails: OffchainSessionDetails,
+  ): Promise<OffchainSessionCall[]> {
+    const sessionCall = await this.sessionToCall(
+      dappSignature,
+      offchainSessionDetails,
+    )
     return [sessionCall, ...calls]
   }
 
@@ -92,47 +101,45 @@ export class OffchainSessionAccount
 
     let maxFee = transactionsDetail.maxFee
 
-    if (!maxFee) {
-      try {
-        const sim = await this.simulateTransaction(
-          [
-            {
-              type: TransactionType.INVOKE,
-              payload: calls,
-            },
-          ],
+    try {
+      const sim = await this.simulateTransaction(
+        [
+          {
+            type: TransactionType.INVOKE,
+            payload: calls,
+          },
+        ],
+        {
+          skipValidate: true,
+          nonce,
+        },
+      )
+
+      const [estimation] = sim
+      const { fee_estimation } = estimation
+      const overall_fee = fee_estimation.overall_fee
+
+      maxFee = estimation.suggestedMaxFee ?? overall_fee
+    } catch (e) {
+      // fallback
+      maxFee = (
+        await this.getSuggestedFee(
+          {
+            type: TransactionType.INVOKE,
+            payload: calls,
+          },
           {
             skipValidate: true,
             nonce,
           },
         )
-
-        const [estimation] = sim
-        const { fee_estimation } = estimation
-        const overall_fee = fee_estimation.overall_fee
-
-        maxFee = estimation.suggestedMaxFee ?? overall_fee
-      } catch (e) {
-        // fallback
-        maxFee = (
-          await this.getSuggestedFee(
-            {
-              type: TransactionType.INVOKE,
-              payload: calls,
-            },
-            {
-              skipValidate: true,
-              nonce,
-            },
-          )
-        ).suggestedMaxFee
-      }
+      ).suggestedMaxFee
     }
 
     const signerDetails: InvocationsSignerDetails = {
       walletAddress: this.account.address,
       nonce,
-      maxFee,
+      maxFee: maxFee,
       version: "0x1" as const,
       chainId,
       cairoVersion: this.cairoVersion ?? "1",
@@ -147,6 +154,7 @@ export class OffchainSessionAccount
     const transactionsWithSession = await this.extendCallsBySession(
       transactions,
       dappSignature,
+      { nonce, maxFee: maxFee.toString(), version: "0x1" as const },
     )
 
     const invokeParams: AddInvokeTransactionParameters = {
@@ -154,6 +162,7 @@ export class OffchainSessionAccount
         contract_address: t.contractAddress,
         entrypoint: t.entrypoint,
         calldata: t.calldata as string[],
+        offchainSessionDetails: t.offchainSessionDetails,
       })),
     }
 
