@@ -20,5 +20,5 @@
       "@/*": ["src/*"]
     }
   },
-  "include": [".eslintrc.json", "commitlint.config.js", "**/*.ts", "**/*.tsx"]
+  "include": [".eslintrc.json", "commitlint.config.cjs", "**/*.ts", "**/*.tsx"]
 }
