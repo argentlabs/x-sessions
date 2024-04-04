@@ -17,6 +17,9 @@ dependencies:
   starknet4:
     specifier: npm:starknet@4.22.0
     version: /starknet@4.22.0
+  starknet5:
+    specifier: npm:starknet@5.25.0
+    version: /starknet@5.25.0
 
 devDependencies:
   '@commitlint/cli':
