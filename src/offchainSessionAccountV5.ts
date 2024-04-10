@@ -12,6 +12,7 @@ import {
   Signature,
   SignerInterface,
   TransactionType,
+  UniversalDetails,
   num,
   stark,
 } from "starknet"
@@ -77,7 +78,7 @@ export class OffchainSessionAccountV5
    */
   public async execute(
     calls: Call | Call[],
-    abis: Abi[] | undefined = undefined,
+    abiOrDetails?: Abi[] | UniversalDetails,
     transactionsDetail: InvocationsDetails = {},
   ): Promise<InvokeFunctionResponse> {
     const transactions = ensureArray(calls)
@@ -85,9 +86,14 @@ export class OffchainSessionAccountV5
     const version = "0x1" as const
     const chainId = await this.getChainId()
 
-    const nonce = num.toHex(transactionsDetail.nonce ?? (await this.getNonce()))
+    const details =
+      abiOrDetails === undefined || Array.isArray(abiOrDetails)
+        ? transactionsDetail
+        : abiOrDetails
 
-    let maxFee = transactionsDetail.maxFee
+    const nonce = num.toHex(details.nonce ?? (await this.getNonce()))
+
+    let maxFee = details.maxFee
 
     if (!maxFee) {
       try {
@@ -137,7 +143,6 @@ export class OffchainSessionAccountV5
     const dappSignature = await this.signer.signTransaction(
       transactions,
       signerDetails,
-      abis,
     )
 
     const transactionsWithSession = await this.extendCallsBySession(
@@ -150,7 +155,7 @@ export class OffchainSessionAccountV5
       otherwise the cosign would fail most of the times 
       since maxFee could change in a very short time if calculated in both this package and in webwallet
     */
-    return this.account?.execute(transactionsWithSession, abis, {
+    return this.account?.execute(transactionsWithSession, {
       nonce,
       maxFee: maxFee.toString(),
       version,
