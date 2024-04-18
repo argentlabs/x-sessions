@@ -9,8 +9,9 @@ import {
   typedData,
 } from "starknet"
 
-import { OffChainSession } from "./types"
+import { OffChainSession } from "./hybridSessionTypes"
 
+// TODO: refactor with backend new endpoints
 export class ArgentBackendService {
   // TODO We might want to update this to support KeyPair instead of StarknetKeyPair?
   // Or that backend becomes: "export class BackendService extends KeyPair {", can also extends RawSigner ?

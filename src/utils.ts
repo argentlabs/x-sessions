@@ -1,17 +1,13 @@
-//import { getStarkKey, utils } from "@scure/starknet"
-import {
-  Account,
-  ProviderInterface,
-  ec,
-  hash,
-  shortString,
-  stark,
-  typedData,
-} from "starknet"
+import { Account, ec, hash, shortString, stark, typedData } from "starknet"
 import { StarknetChainId, StarknetDomain, TypedData } from "starknet-types"
-import { ArgentBackendService } from "./argentBackendService"
-import { DappService } from "./dappService"
-import { AllowedMethod, OffChainSession } from "./types"
+import { ArgentBackendService } from "./hybridSessionBackendService"
+import { DappService } from "./hybridSessionDappService"
+import {
+  AllowedMethod,
+  CreateSessionParams,
+  OffChainSession,
+  SessionMetadata,
+} from "./hybridSessionTypes"
 
 const sessionTypes = {
   StarknetDomain: [
@@ -69,39 +65,35 @@ const getSessionTypedData = async (
 const createSessionRequest = (
   allowed_methods: AllowedMethod[],
   expires_at: bigint,
+  metadata: SessionMetadata,
   signerPublicKey: string,
-): OffChainSession => {
-  const metadata = JSON.stringify({ metadata: "metadata", max_fee: 0 }) // need to be an input, update when blockchain/backend/whoever is ready to share
-
-  return {
-    expires_at: Number(expires_at),
-    allowed_methods,
-    metadata,
-    session_key_guid: hash.computePoseidonHash(
-      shortString.encodeShortString("Starknet Signer"),
-      signerPublicKey,
-    ),
-  }
-}
-
-type CreateSessionParams = {
-  provider: ProviderInterface
-  account: Account
-  allowedMethods: AllowedMethod[]
-  expiry: bigint
-  dappKey?: Uint8Array
-}
+): OffChainSession => ({
+  expires_at: Number(expires_at),
+  allowed_methods,
+  metadata: JSON.stringify(metadata),
+  session_key_guid: hash.computePoseidonHash(
+    shortString.encodeShortString("Starknet Signer"),
+    signerPublicKey,
+  ),
+})
 
 const createSessionAccount = async ({
   provider,
   account,
-  allowedMethods,
-  expiry = BigInt(Date.now()) + 10000n,
-  dappKey = ec.starkCurve.utils.randomPrivateKey(),
+  sessionParams,
+  options = {},
 }: CreateSessionParams): Promise<Account> => {
+  const {
+    allowedMethods,
+    expiry = BigInt(Date.now()) + 10000n,
+    dappKey = ec.starkCurve.utils.randomPrivateKey(),
+    metaData,
+  } = sessionParams
+
   const sessionRequest = createSessionRequest(
     allowedMethods,
     expiry,
+    metaData,
     ec.starkCurve.getStarkKey(dappKey),
   )
 
@@ -110,7 +102,17 @@ const createSessionAccount = async ({
     await account.getChainId(),
   )
 
-  const accountSessionSignature = await account.signMessage(sessionTypedData) // called by wallet
+  const { wallet, useWalletRequestMethods } = options
+
+  // When rpc spec will become the standard, this can be removed
+  // and use wallet.request only
+  const accountSessionSignature =
+    useWalletRequestMethods && wallet
+      ? await wallet.request({
+          type: "starknet_signTypedData",
+          params: sessionTypedData,
+        })
+      : await account.signMessage(sessionTypedData) // called by wallet */
 
   //TODO: remove
   const backendKey = ec.starkCurve.utils.randomPrivateKey()

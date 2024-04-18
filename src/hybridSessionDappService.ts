@@ -22,10 +22,14 @@ import {
   typedData,
 } from "starknet"
 
-import { ArgentBackendService } from "./argentBackendService"
+import { ArgentBackendService } from "./hybridSessionBackendService"
 import { ALLOWED_METHOD_HASH } from "./utils"
 import { signerTypeToCustomEnum } from "./signerTypeToCustomEnum"
-import { OffChainSession, OnChainSession, SignerType } from "./types"
+import {
+  OffChainSession,
+  OnChainSession,
+  SignerType,
+} from "./hybridSessionTypes"
 
 const SESSION_MAGIC = shortString.encodeShortString("session-token")
 
@@ -72,11 +76,6 @@ export class DappService {
     })
 
     return new Account(provider, account.address, sessionSigner)
-    /* return new ArgentSessionAccount(
-      provider,
-      account.address,
-      sessionSigner,
-    ) */
   }
 
   private async signRegularTransaction(
