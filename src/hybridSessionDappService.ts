@@ -255,7 +255,7 @@ export class DappService {
     }
   }
 
-  // function needed as starknetSignatureType in signer.ts is already compiled
+  // function needed as starknetSignatureType is already compiled
   private getStarknetSignatureType(pubkey: BigNumberish, signature: bigint[]) {
     return signerTypeToCustomEnum(SignerType.Starknet, {
       pubkey,
