@@ -26,6 +26,7 @@ import { ArgentBackendService } from "./hybridSessionBackendService"
 import { ALLOWED_METHOD_HASH } from "./utils"
 import { signerTypeToCustomEnum } from "./signerTypeToCustomEnum"
 import {
+  BackendSignatureResponse,
   OffChainSession,
   OnChainSession,
   SignerType,
@@ -37,14 +38,14 @@ export class DappService {
   constructor(
     private argentBackend: ArgentBackendService,
     public sessionPk: Uint8Array,
-    public sessionTypedData: TypedData,
   ) {}
 
   public getAccountWithSessionSigner(
     provider: ProviderInterface,
     account: Account,
-    completedSession: OffChainSession,
+    sessionRequest: OffChainSession,
     sessionAuthorizationSignature: ArraySignatureType,
+    sessionTypedData: TypedData,
   ) {
     const sessionSigner = new (class extends Signer {
       constructor(
@@ -69,9 +70,10 @@ export class DappService {
     })((calls: Call[], invocationSignerDetails: InvocationsSignerDetails) => {
       return this.signRegularTransaction(
         sessionAuthorizationSignature,
-        completedSession,
+        sessionRequest,
         calls,
         invocationSignerDetails,
+        sessionTypedData,
       )
     })
 
@@ -80,9 +82,10 @@ export class DappService {
 
   private async signRegularTransaction(
     sessionAuthorizationSignature: ArraySignatureType,
-    completedSession: OffChainSession,
+    sessionRequest: OffChainSession,
     calls: Call[],
     invocationSignerDetails: InvocationsSignerDetails,
+    sessionTypedData: TypedData,
   ): Promise<ArraySignatureType> {
     const compiledCalldata = transaction.getExecuteCalldata(
       calls,
@@ -120,36 +123,42 @@ export class DappService {
     }
     return this.compileSessionSignature(
       sessionAuthorizationSignature,
-      completedSession,
+      sessionRequest,
       txHash,
       calls,
       invocationSignerDetails.walletAddress,
       invocationSignerDetails,
+      sessionTypedData,
     )
   }
 
   private async compileSessionSignature(
     sessionAuthorizationSignature: ArraySignatureType,
-    completedSession: OffChainSession,
+    sessionRequest: OffChainSession,
     transactionHash: string,
     calls: Call[],
     accountAddress: string,
     invocationSignerDetails: InvocationsSignerDetails,
+    sessionTypedData: TypedData,
   ): Promise<ArraySignatureType> {
-    const session = this.compileSessionHelper(completedSession)
+    const session = this.compileSessionHelper(sessionRequest)
+
+    const sessionSignature = await this.signTxAndSession(
+      transactionHash,
+      accountAddress,
+      sessionTypedData,
+    )
 
     const guardianSignature = await this.argentBackend.signTxAndSession(
       calls,
       invocationSignerDetails,
-      completedSession,
+      sessionTypedData,
+      sessionSignature,
     )
-    const sessionSignature = await this.signTxAndSession(
-      transactionHash,
-      accountAddress,
-    )
+
     const sessionToken = await this.compileSessionTokenHelper(
       session,
-      completedSession,
+      sessionRequest,
       calls,
       sessionSignature,
       sessionAuthorizationSignature,
@@ -162,9 +171,10 @@ export class DappService {
   private async signTxAndSession(
     transactionHash: string,
     accountAddress: string,
+    sessionTypedData: TypedData,
   ): Promise<bigint[]> {
     const sessionMessageHash = typedData.getMessageHash(
-      this.sessionTypedData,
+      sessionTypedData,
       accountAddress,
     )
     const sessionWithTxHash = hash.computePoseidonHash(
@@ -176,10 +186,8 @@ export class DappService {
     return [signature.r, signature.s]
   }
 
-  private buildMerkleTree(
-    completedSession: OffChainSession,
-  ): merkle.MerkleTree {
-    const leaves = completedSession.allowed_methods.map((method) =>
+  private buildMerkleTree(sessionRequest: OffChainSession): merkle.MerkleTree {
+    const leaves = sessionRequest.allowed_methods.map((method) =>
       hash.computePoseidonHashOnElements([
         ALLOWED_METHOD_HASH,
         method["Contract Address"],
@@ -190,13 +198,13 @@ export class DappService {
   }
 
   private getSessionProofs(
-    completedSession: OffChainSession,
+    sessionRequest: OffChainSession,
     calls: Call[],
   ): string[][] {
-    const tree = this.buildMerkleTree(completedSession)
+    const tree = this.buildMerkleTree(sessionRequest)
 
     return calls.map((call) => {
-      const allowedIndex = completedSession.allowed_methods.findIndex(
+      const allowedIndex = sessionRequest.allowed_methods.findIndex(
         (allowedMethod) => {
           return (
             allowedMethod["Contract Address"] == call.contractAddress &&
@@ -209,10 +217,10 @@ export class DappService {
   }
 
   private compileSessionHelper(
-    completedSession: OffChainSession,
+    sessionRequest: OffChainSession,
   ): OnChainSession {
     const bArray = byteArray.byteArrayFromString(
-      completedSession.metadata as string,
+      sessionRequest.metadata as string,
     )
     const elements = [
       bArray.data.length,
@@ -223,22 +231,22 @@ export class DappService {
     const metadataHash = hash.computePoseidonHashOnElements(elements)
 
     const session = {
-      expires_at: completedSession.expires_at,
+      expires_at: sessionRequest.expires_at,
       allowed_methods_root:
-        this.buildMerkleTree(completedSession).root.toString(),
+        this.buildMerkleTree(sessionRequest).root.toString(),
       metadata_hash: metadataHash,
-      session_key_guid: completedSession.session_key_guid,
+      session_key_guid: sessionRequest.session_key_guid,
     }
     return session
   }
 
   private async compileSessionTokenHelper(
     session: OnChainSession,
-    completedSession: OffChainSession,
+    sessionRequest: OffChainSession,
     calls: Call[],
     sessionSignature: bigint[],
     session_authorization: string[],
-    guardianSignature: bigint[],
+    guardianSignature: BackendSignatureResponse,
   ) {
     return {
       session,
@@ -248,10 +256,10 @@ export class DappService {
         sessionSignature,
       ),
       guardianSignature: this.getStarknetSignatureType(
-        this.argentBackend.backendKey, // TODO: update with backend endpoint
-        guardianSignature,
+        guardianSignature.publicKey,
+        [guardianSignature.r, guardianSignature.s],
       ),
-      proofs: this.getSessionProofs(completedSession, calls),
+      proofs: this.getSessionProofs(sessionRequest, calls),
     }
   }
 
@@ -267,7 +275,7 @@ export class DappService {
   // TODO: keep for future developments
 
   /* public async getOutsideExecutionCall(
-    completedSession: OffChainSession,
+    sessionRequest: OffChainSession,
     sessionAuthorizationSignature: ArraySignatureType,
     calls: Call[],
     revision: TypedDataRevision,
@@ -296,7 +304,7 @@ export class DappService {
     )
     const signature = await this.compileSessionSignatureFromOutside(
       sessionAuthorizationSignature,
-      completedSession,
+      sessionRequest,
       messageHash,
       calls,
       accountAddress,
@@ -316,31 +324,31 @@ export class DappService {
   
   private async compileSessionSignatureFromOutside(
     sessionAuthorizationSignature: ArraySignatureType,
-    completedSession: OffChainSession,
+    sessionRequest: OffChainSession,
     transactionHash: string,
     calls: Call[],
     accountAddress: string,
     revision: TypedDataRevision,
     outsideExecution: OutsideExecution,
   ): Promise<ArraySignatureType> {
-    const session = this.compileSessionHelper(completedSession)
+    const session = this.compileSessionHelper(sessionRequest)
 
     const guardianSignature = await this.argentBackend.signOutsideTxAndSession(
       calls,
-      completedSession,
+      sessionRequest,
       accountAddress,
       outsideExecution as OutsideExecution,
       revision,
     )
 
     const sessionSignature = await this.signTxAndSession(
-      completedSession,
+      sessionRequest,
       transactionHash,
       accountAddress,
     )
     const sessionToken = await this.compileSessionTokenHelper(
       session,
-      completedSession,
+      sessionRequest,
       calls,
       sessionSignature,
       sessionAuthorizationSignature,

@@ -2,83 +2,137 @@ import {
   Call,
   InvocationsSignerDetails,
   RPC,
+  Signature,
   V2InvocationsSignerDetails,
-  ec,
-  hash,
+  V3InvocationsSignerDetails,
+  constants,
+  num,
+  stark,
   transaction,
   typedData,
 } from "starknet"
 
-import { OffChainSession } from "./hybridSessionTypes"
+import { TypedData } from "starknet-types"
+import { BackendSignatureResponse } from "./hybridSessionTypes"
 
-// TODO: refactor with backend new endpoints
 export class ArgentBackendService {
-  // TODO We might want to update this to support KeyPair instead of StarknetKeyPair?
-  // Or that backend becomes: "export class BackendService extends KeyPair {", can also extends RawSigner ?
   constructor(
-    public sessionTypedData: any,
-    public backendKey: any,
+    public pubkey: string,
+    public accountSessionSignature: Signature,
+    /* public sessionTypedData: TypedData, */
   ) {}
 
-  // TODO: remove and replace with backend endpoint
+  private getApiBaseUrl(chainId: constants.StarknetChainId): string {
+    return chainId === constants.StarknetChainId.SN_MAIN
+      ? "https://cloud.argent-api.com/v1"
+      : "https://cloud-dev.argent-api.com/v1"
+
+    //"https://api.hydrogen.argent47.net/v1"
+  }
+
   public async signTxAndSession(
     calls: Call[],
     transactionsDetail: InvocationsSignerDetails,
-    sessionTokenToSign: OffChainSession,
-  ): Promise<bigint[]> {
-    // verify session param correct
-    // extremely simplified version of the backend verification
-    // backend must check, timestamps fees, used tokens nfts...
-    const allowed_methods = sessionTokenToSign.allowed_methods
-    if (
-      !calls.every((call) => {
-        return allowed_methods.some(
-          (method) =>
-            method["Contract Address"] === call.contractAddress &&
-            method.selector === call.entrypoint,
-        )
-      })
-    ) {
-      throw new Error("Call not allowed by backend")
-    }
-
+    sessionTypedData: TypedData,
+    sessionSignature: bigint[],
+  ): Promise<BackendSignatureResponse> {
     const compiledCalldata = transaction.getExecuteCalldata(
       calls,
       transactionsDetail.cairoVersion,
     )
-    let msgHash
+
+    const sessionHash = typedData.getMessageHash(
+      sessionTypedData,
+      transactionsDetail.walletAddress,
+    )
+
+    const sessionAuthorisation = stark.formatSignature(
+      this.accountSessionSignature,
+    )
+
+    let apiBaseUrl = null
+
+    const session = {
+      sessionHash,
+      sessionAuthorisation,
+      sessionSignature: {
+        type: "StarknetKey",
+        signer: {
+          publicKey: this.pubkey,
+          r: sessionSignature[0].toString(),
+          s: sessionSignature[1].toString(),
+        },
+      },
+    }
+
+    // TODO: type
+    const body: any = {
+      session,
+    }
+
     if (
       Object.values(RPC.ETransactionVersion2).includes(
         transactionsDetail.version as any,
       )
     ) {
-      const det = transactionsDetail as V2InvocationsSignerDetails
-      msgHash = hash.calculateInvokeTransactionHash({
-        ...det,
-        senderAddress: det.walletAddress,
-        compiledCalldata,
-        version: det.version,
-      })
+      const txDetailsV2 = transactionsDetail as V2InvocationsSignerDetails
+      apiBaseUrl = this.getApiBaseUrl(txDetailsV2.chainId)
+
+      body.transaction = {
+        // Can be either v1 or v3 transaction
+        contractAddress: txDetailsV2.walletAddress,
+        calldata: compiledCalldata,
+        maxFee: txDetailsV2.maxFee.toString(),
+        nonce: txDetailsV2.nonce.toString(),
+        version: num.toBigInt(txDetailsV2.version).toString(10),
+        chainId: num.toBigInt(txDetailsV2.chainId).toString(10),
+      }
     } else if (
       Object.values(RPC.ETransactionVersion3).includes(
         transactionsDetail.version as any,
       )
     ) {
-      throw Error("not implemented")
+      const txDetailsV3 = transactionsDetail as V3InvocationsSignerDetails
+      apiBaseUrl = this.getApiBaseUrl(txDetailsV3.chainId)
+
+      body.transaction = {
+        sender_address: txDetailsV3.walletAddress,
+        calldata: compiledCalldata,
+        nonce: txDetailsV3.nonce.toString(),
+        version: num.toBigInt(txDetailsV3.version).toString(10),
+        chainId: num.toBigInt(txDetailsV3.chainId).toString(10),
+        resource_bounds: {
+          l1_gas: {
+            max_amount: txDetailsV3.resourceBounds.l1_gas.max_amount.toString(),
+            max_price_per_unit:
+              txDetailsV3.resourceBounds.l1_gas.max_price_per_unit.toString(),
+          },
+          l2_gas: {
+            max_amount: txDetailsV3.resourceBounds.l1_gas.max_amount.toString(),
+            max_price_per_unit:
+              txDetailsV3.resourceBounds.l1_gas.max_price_per_unit.toString(),
+          },
+        },
+        tip: txDetailsV3.tip.toString(),
+        paymaster_data: txDetailsV3.paymasterData.map((pm) => pm.toString()),
+        account_deployment_data: txDetailsV3.accountDeploymentData,
+        nonce_data_availability_mode: txDetailsV3.nonceDataAvailabilityMode,
+        fee_data_availability_mode: txDetailsV3.feeDataAvailabilityMode,
+      }
     } else {
       throw Error("unsupported signTransaction version")
     }
 
-    const sessionMessageHash = typedData.getMessageHash(
-      this.sessionTypedData,
-      transactionsDetail.walletAddress,
-    )
-    const sessionWithTxHash = hash.computePoseidonHash(
-      msgHash,
-      sessionMessageHash,
-    )
-    const signature = ec.starkCurve.sign(sessionWithTxHash, this.backendKey)
-    return [signature.r, signature.s]
+    const response = await fetch(`${apiBaseUrl}/cosigner/signSession`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    })
+    const json = await response.json()
+
+    return json.signature
   }
 
   /* public async signOutsideTxAndSession(

@@ -82,6 +82,7 @@ const createSessionAccount = async ({
   account,
   sessionParams,
   options = {},
+  wallet,
 }: CreateSessionParams): Promise<Account> => {
   const {
     allowedMethods,
@@ -102,9 +103,9 @@ const createSessionAccount = async ({
     await account.getChainId(),
   )
 
-  const { wallet, useWalletRequestMethods } = options
+  const { useWalletRequestMethods } = options
 
-  // When rpc spec will become the standard, this can be removed
+  // When jsonRPC spec will become the standard, this can be removed
   // and use wallet.request only
   const accountSessionSignature =
     useWalletRequestMethods && wallet
@@ -112,26 +113,21 @@ const createSessionAccount = async ({
           type: "starknet_signTypedData",
           params: sessionTypedData,
         })
-      : await account.signMessage(sessionTypedData) // called by wallet */
+      : await account.signMessage(sessionTypedData)
 
-  //TODO: remove
-  const backendKey = ec.starkCurve.utils.randomPrivateKey()
   const argentBackendService = new ArgentBackendService(
-    sessionTypedData,
-    backendKey,
+    ec.starkCurve.getStarkKey(dappKey),
+    accountSessionSignature,
   )
 
-  const dappService = new DappService(
-    argentBackendService,
-    dappKey,
-    sessionTypedData,
-  )
+  const dappService = new DappService(argentBackendService, dappKey)
 
   return dappService.getAccountWithSessionSigner(
     provider,
     account,
     sessionRequest,
     stark.formatSignature(accountSessionSignature),
+    sessionTypedData,
   )
 }
 

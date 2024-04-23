@@ -43,7 +43,6 @@ export interface SessionToken {
 
 // When rpc spec will become the standard, this can be removed
 export type CreateSessionOptions = {
-  wallet?: StarknetWindowObject
   useWalletRequestMethods?: boolean
 }
 
@@ -68,5 +67,12 @@ export type CreateSessionParams = {
   provider: ProviderInterface
   account: Account
   sessionParams: SessionParams
+  wallet?: StarknetWindowObject
   options?: CreateSessionOptions
+}
+
+export type BackendSignatureResponse = {
+  publicKey: string // Public address of a guardian (cosigner)
+  r: bigint
+  s: bigint
 }
