@@ -20,5 +20,6 @@
       "@/*": ["src/*"]
     }
   },
+  "exclude": ["node_modules"],
   "include": [".eslintrc.json", "commitlint.config.cjs", "**/*.ts", "**/*.tsx"]
 }

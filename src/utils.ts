@@ -1,107 +1,139 @@
+import { Account, ec, hash, shortString, stark, typedData } from "starknet"
+import { StarknetChainId, StarknetDomain, TypedData } from "starknet-types"
+import { ArgentBackendService } from "./hybridSessionBackendService"
+import { DappService } from "./hybridSessionDappService"
 import {
-  AccountInterface,
-  CallData,
-  ProviderInterface,
-  Signature,
-  constants,
-  hash,
-  merkle,
-  num,
-  typedData,
-} from "starknet"
-import { ProviderInterface as ProviderInterfaceV4 } from "starknet4"
+  AllowedMethod,
+  CreateSessionParams,
+  OffChainSession,
+  SessionMetadata,
+} from "./hybridSessionTypes"
 
-export interface Policy {
-  contractAddress: string
-  selector: string
+const sessionTypes = {
+  StarknetDomain: [
+    { name: "name", type: "shortstring" },
+    { name: "version", type: "shortstring" },
+    { name: "chainId", type: "shortstring" },
+    { name: "revision", type: "shortstring" },
+  ],
+  "Allowed Method": [
+    { name: "Contract Address", type: "ContractAddress" },
+    { name: "selector", type: "selector" },
+  ],
+  Session: [
+    { name: "Expires At", type: "timestamp" },
+    { name: "Allowed Methods", type: "merkletree", contains: "Allowed Method" },
+    { name: "Metadata", type: "string" },
+    { name: "Session Key", type: "felt" },
+  ],
 }
 
-export interface RequestSession {
-  key: string
-  expires: number
-  policies: Policy[]
-}
+export const ALLOWED_METHOD_HASH = typedData.getTypeHash(
+  sessionTypes,
+  "Allowed Method",
+  typedData.TypedDataRevision.Active,
+)
 
-export interface PreparedSession extends RequestSession {
-  root: string
-}
+// WARNING! Revision is encoded as a number in the StarkNetDomain type and not as shortstring
+// This is due to a bug in the Braavos implementation, and has been kept for compatibility
+const getSessionDomain = async (
+  chainId: StarknetChainId,
+): Promise<StarknetDomain> => ({
+  name: "SessionAccount.session",
+  version: shortString.encodeShortString("1"),
+  chainId,
+  revision: "1",
+})
 
-export interface SignedSession extends PreparedSession {
-  signature: Signature
-}
-
-export const SESSION_PLUGIN_CLASS_HASH =
-  "0x31c70ed28f4b0faf39b2f97d8f0a61a36968319c13fe6f2051b8de5a15f3d9b"
-
-// H(Policy(contractAddress:felt,selector:selector))
-const POLICY_TYPE_HASH =
-  "0x2f0026e78543f036f33e26a8f5891b88c58dc1e20cbbfaf0bb53274da6fa568"
-
-export async function supportsSessions(
-  address: string,
-  provider: ProviderInterface | ProviderInterfaceV4,
-): Promise<boolean> {
-  const { result } = await provider.callContract({
-    contractAddress: address,
-    entrypoint: "isPlugin",
-    calldata: CallData.compile({ classHash: SESSION_PLUGIN_CLASS_HASH }),
-  })
-  return num.toBigInt(result[0]) !== constants.ZERO
-}
-
-export function preparePolicy({ contractAddress, selector }: Policy): string {
-  return hash.computeHashOnElements([
-    POLICY_TYPE_HASH,
-    contractAddress,
-    typedData.prepareSelector(selector),
-  ])
-}
-
-export function createMerkleTreeForPolicies(
-  policies: Policy[],
-): merkle.MerkleTree {
-  return new merkle.MerkleTree(policies.map(preparePolicy))
-}
-
-export function prepareSession(session: RequestSession): PreparedSession {
-  const { root } = createMerkleTreeForPolicies(session.policies)
-  return { ...session, root }
-}
-
-export async function createSession(
-  session: RequestSession,
-  account: AccountInterface,
-): Promise<SignedSession> {
-  const { expires, key, policies, root } = prepareSession(session)
-  const chainId = await account.getChainId()
-  const signature = await account.signMessage({
-    primaryType: "Session",
-    types: {
-      Policy: [
-        { name: "contractAddress", type: "felt" },
-        { name: "selector", type: "selector" },
-      ],
-      Session: [
-        { name: "key", type: "felt" },
-        { name: "expires", type: "felt" },
-        { name: "root", type: "merkletree", contains: "Policy" },
-      ],
-      StarkNetDomain: [{ name: "chainId", type: "felt" }],
-    },
-    domain: {
-      chainId,
-    },
-    message: {
-      key,
-      expires,
-      root: policies, // we can pass the policy to the message, when argent x works with type merkletree (starknet.js update)
-    },
-  })
+const getSessionTypedData = async (
+  sessionRequest: OffChainSession,
+  chainId: StarknetChainId,
+): Promise<TypedData> => {
   return {
-    key,
-    policies,
-    expires,
-    root,
-    signature,
+    types: sessionTypes,
+    primaryType: "Session",
+    domain: await getSessionDomain(chainId),
+    message: {
+      "Expires At": sessionRequest.expires_at,
+      "Allowed Methods": sessionRequest.allowed_methods,
+      Metadata: sessionRequest.metadata,
+      "Session Key": sessionRequest.session_key_guid,
+    },
   }
+}
+
+const createSessionRequest = (
+  allowed_methods: AllowedMethod[],
+  expires_at: bigint,
+  metadata: SessionMetadata,
+  signerPublicKey: string,
+): OffChainSession => ({
+  expires_at: Number(expires_at),
+  allowed_methods,
+  metadata: JSON.stringify(metadata),
+  session_key_guid: hash.computePoseidonHash(
+    shortString.encodeShortString("Starknet Signer"),
+    signerPublicKey,
+  ),
+})
+
+const createSessionAccount = async ({
+  provider,
+  account,
+  sessionParams,
+  options = {},
+  wallet,
+}: CreateSessionParams): Promise<Account> => {
+  const {
+    allowedMethods,
+    expiry = BigInt(Date.now()) + 10000n,
+    dappKey = ec.starkCurve.utils.randomPrivateKey(),
+    metaData,
+  } = sessionParams
+
+  const sessionRequest = createSessionRequest(
+    allowedMethods,
+    expiry,
+    metaData,
+    ec.starkCurve.getStarkKey(dappKey),
+  )
+
+  const sessionTypedData = await getSessionTypedData(
+    sessionRequest,
+    await account.getChainId(),
+  )
+
+  const { useWalletRequestMethods } = options
+
+  // When jsonRPC spec will become the standard, this can be removed
+  // and use wallet.request only
+  const accountSessionSignature =
+    useWalletRequestMethods && wallet
+      ? await wallet.request({
+          type: "starknet_signTypedData",
+          params: sessionTypedData,
+        })
+      : await account.signMessage(sessionTypedData)
+
+  const argentBackendService = new ArgentBackendService(
+    ec.starkCurve.getStarkKey(dappKey),
+    accountSessionSignature,
+  )
+
+  const dappService = new DappService(argentBackendService, dappKey)
+
+  return dappService.getAccountWithSessionSigner(
+    provider,
+    account,
+    sessionRequest,
+    stark.formatSignature(accountSessionSignature),
+    sessionTypedData,
+  )
+}
+
+export {
+  createSessionAccount,
+  getSessionDomain,
+  getSessionTypedData,
+  sessionTypes,
 }
