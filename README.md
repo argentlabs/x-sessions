@@ -14,6 +14,105 @@ pnpm add @argent/x-sessions
 pnpm add @argent/x-sessions
 ```
 
+## Demo Dapp
+
+A demo dapp using both hybrid sessions and offchain sessions can be found here [https://github.com/argentlabs/session-keys-example-dapp](https://github.com/argentlabs/session-keys-example-dapp)
+
+# Hybrid session keys
+
+## Creating an Argent hybrid session account
+
+First you need to have a deployed account. This is the account that will authorise the session and interact with the contracts of your dapp.
+
+To sign the session message and create the session account, the method needed is `createSessionAccount`.
+
+This example session will allow the dapp to execute an example endpoint on an example contract without asking the user to approve the transaction again. After signing the session the dapp can execute all transactions listed in `allowedMethods` whenever it wants and as many times as it wants.
+
+**The list of allowedMethods needs to be communicated with Argent, in order to be whitelisted.**
+
+```typescript
+export interface AllowedMethod {
+  "Contract Address": string
+  selector: string
+}
+
+export type MetadataTxFee = {
+  tokenAddress: string
+  maxAmount: string
+}
+
+export type SessionMetadata = {
+  projectID: string
+  txFees: MetadataTxFee[]
+}
+
+type SessionParams = {
+  dappKey?: Uint8Array // this is optional. This sdk generate a dappKey using ec.starkCurve.utils.randomPrivateKey() if not provided
+  allowedMethods: AllowedMethod[]
+  expiry: bigint
+  metaData: SessionMetadata
+}
+```
+
+The following snippet show how to create and use an hybrid session account
+
+```typescript
+import {
+  SessionParams,
+  createSessionAccount
+} from "@argent/x-sessions"
+
+const sessionParams: SessionParams = {
+  allowedMethods: [
+    {
+      "Contract Address": contractAddress,
+      selector: "method_selector"
+    }
+  ],
+  expiry: Math.floor(
+    (Date.now() + 1000 * 60 * 60 * 24) / 1000
+  ) as any, // ie: 1 day
+  metaData: {
+    projectID: "test-dapp",
+    txFees: [
+      {
+        tokenAddress: ETHTokenAddress,
+        maxAmount: parseUnits("0.1", 18).value.toString()
+      }
+    ]
+  }
+}
+
+/* 
+// Optional  parameter to use json rpc spec with wallets
+const options: CreateSessionOptions = {  useWalletRequestMethods: true }; 
+*/
+
+const sessionAccount = await createSessionAccount({
+  provider: new RpcProvider({
+    nodeUrl: "https://starknet-sepolia.public.blastapi.io/rpc/v0_7",
+    chainId: constants.StarknetChainId.SN_SEPOLIA
+  }),
+  account: wallet.account,
+  sessionParams
+  /* wallet, //StarknetWindowObject */
+  /* options, */
+})
+
+// this transaction should get executed without the user having to approve again
+const tx = sessionAccount.execute({
+  // lets assume this is a erc20 contract
+  contractAddress: "0x...",
+  selector: "transfer",
+  calldata: [
+    "0x..."
+    // ...
+  ]
+})
+```
+
+Use this account to send transactions.
+
 # Offchain session keys
 
 ## Creating an offchain session as a dapp
@@ -242,34 +341,3 @@ Congratulations, you can now use your dapp to execute transactions without the u
 > Note: Sessions are an alpha feature and are not yet available on mainnet. You can use them on testnet, but expect bugs. That is also the reason why it is so inconvenient to activate them for use in Argent X right now.
 
 Sessions can just be used with a new type of account, pioneered by Argent X. This guide will set you up with a new account that can use sessions, by deploying a Plugin Account and registering your first plugin (Sessions Plugin!).
-
-### Activate Plugin account in Argent X
-
-You can activate session accounts in Argent X Settings, under the "Experimental features" tab.
-
-| ![Argent X Settings](./assets/settings.png) | ![Experimental Settings](./assets/experimental.png) | ![Activate Plugin Account](./assets/toggle-session.png) |
-| --- | --- | --- |
-
-### Deploy a Plugin Account
-
-We strongly recommend to use a new account for sessions. You can create a new account in Argent X by clicking the big `+` button in the account list.
-
-### Upgrade Account to use Plugin Account Implementation
-
-You can upgrade your account to use the Plugin Account implementation by opening the account context menu and selecting "Use Plugins". It will prompt you to confirm a upgrade transaction.
-
-| ![Upgrade Account](./assets/use-plugin.png) | ![Upgrade Transaction](./assets/approve.png) |
-| --- | --- |
-
-### Register Sessions Plugin
-
-After the upgrade is done you can register the Sessions Plugin by clicking the new Plugins button in your Account. It will prompt you to confirm a register transaction.
-
-| ![Register Plugin](./assets/plugins.png) | ![Register Transaction](./assets/add-plugin.png) |
-| --- | --- |
-
-### Test if Sessions work
-
-To test if sessions work for your account you can head to the [Wallet Playground](https://argentlabs.github.io/argent-x/). It should show `supports sessions: true` at the top and you should be able to test sessions in the playground.
-
-Each "Use Session" click will send a transaction to mint 666 Test Tokens to the account.
