@@ -58,6 +58,7 @@ The following snippet show how to create and use an hybrid session account
 
 ```typescript
 import {
+  SignSessionError,
   SessionParams,
   createSessionAccount
 } from "@argent/x-sessions"
@@ -100,15 +101,20 @@ const sessionAccount = await createSessionAccount({
 })
 
 // this transaction should get executed without the user having to approve again
-const tx = sessionAccount.execute({
-  // lets assume this is a erc20 contract
-  contractAddress: "0x...",
-  selector: "transfer",
-  calldata: [
-    "0x..."
-    // ...
-  ]
-})
+
+try {
+  const tx = sessionAccount.execute({
+    // lets assume this is a erc20 contract
+    contractAddress: "0x...",
+    selector: "transfer",
+    calldata: [
+      "0x..."
+      // ...
+    ]
+  })
+} catch (e) {
+  console.error((e as SignSessionError).cause, e.message)
+}
 ```
 
 Use this account to send transactions.

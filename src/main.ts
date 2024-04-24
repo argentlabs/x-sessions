@@ -9,3 +9,5 @@ export type {
   CreateSessionParams,
   SessionParams,
 } from "./hybridSessionTypes"
+
+export { type SignSessionError } from "./errors"

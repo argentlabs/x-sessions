@@ -18,6 +18,7 @@ import {
   BackendSignSessionBody,
   BackendSignatureResponse,
 } from "./hybridSessionTypes"
+import { SignSessionError } from "./errors"
 
 export class ArgentBackendService {
   constructor(
@@ -129,8 +130,13 @@ export class ArgentBackendService {
       },
       body: JSON.stringify(body),
     })
-    const json = await response.json()
 
+    if (!response.ok) {
+      const error: { status: string } = await response.json()
+      throw new SignSessionError("Sign session error", error.status)
+    }
+
+    const json = await response.json()
     return json.signature
   }
 
