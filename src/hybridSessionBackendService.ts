@@ -51,7 +51,7 @@ export class ArgentBackendService {
       this.accountSessionSignature,
     )
 
-    let apiBaseUrl = null
+    let apiBaseUrl: string | null = null
 
     const session: BackendSessionBody = {
       sessionHash,
