@@ -1,7 +1,9 @@
 import {
   Account,
+  ArraySignatureType,
   BigNumberish,
   CairoCustomEnum,
+  Calldata,
   ProviderInterface,
 } from "starknet"
 import { StarknetWindowObject } from "starknet-types"
@@ -75,4 +77,54 @@ export type BackendSignatureResponse = {
   publicKey: string // Public address of a guardian (cosigner)
   r: bigint
   s: bigint
+}
+
+export type BackendSessionBody = {
+  sessionHash: string
+  sessionAuthorisation: ArraySignatureType
+  sessionSignature: {
+    type: string
+    signer: {
+      publicKey: string
+      r: string
+      s: string
+    }
+  }
+}
+
+export type BackendSessionTxV1Body = {
+  contractAddress: string
+  calldata: Calldata
+  maxFee: string
+  nonce: string
+  version: string
+  chainId: string
+}
+
+export type BackendSessionTxV3Body = {
+  sender_address: string
+  calldata: Calldata
+  nonce: string
+  version: string
+  chainId: string
+  resource_bounds: {
+    l1_gas: {
+      max_amount: string
+      max_price_per_unit: string
+    }
+    l2_gas: {
+      max_amount: string
+      max_price_per_unit: string
+    }
+  }
+  tip: string
+  paymaster_data: string[]
+  account_deployment_data: BigNumberish[]
+  nonce_data_availability_mode: string
+  fee_data_availability_mode: string
+}
+
+export type BackendSignSessionBody = {
+  session: BackendSessionBody
+  transaction?: BackendSessionTxV1Body | BackendSessionTxV3Body
 }

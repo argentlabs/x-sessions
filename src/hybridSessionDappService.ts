@@ -34,6 +34,28 @@ import {
 
 const SESSION_MAGIC = shortString.encodeShortString("session-token")
 
+class SessionSigner extends Signer {
+  constructor(
+    private signTransactionCallback: (
+      calls: Call[],
+      invocationSignerDetails: InvocationsSignerDetails,
+    ) => Promise<ArraySignatureType>,
+  ) {
+    super()
+  }
+
+  public async signRaw(_: string): Promise<string[]> {
+    throw new Error("Method not implemented.")
+  }
+
+  public async signTransaction(
+    calls: Call[],
+    invocationSignerDetails: InvocationsSignerDetails,
+  ): Promise<ArraySignatureType> {
+    return this.signTransactionCallback(calls, invocationSignerDetails)
+  }
+}
+
 export class DappService {
   constructor(
     private argentBackend: ArgentBackendService,
@@ -47,40 +69,22 @@ export class DappService {
     sessionAuthorizationSignature: ArraySignatureType,
     sessionTypedData: TypedData,
   ) {
-    const sessionSigner = new (class extends Signer {
-      constructor(
-        private signTransactionCallback: (
-          calls: Call[],
-          invocationSignerDetails: InvocationsSignerDetails,
-        ) => Promise<ArraySignatureType>,
-      ) {
-        super()
-      }
-
-      public async signRaw(_: string): Promise<string[]> {
-        throw new Error("Method not implemented.")
-      }
-
-      public async signTransaction(
-        calls: Call[],
-        invocationSignerDetails: InvocationsSignerDetails,
-      ): Promise<ArraySignatureType> {
-        return this.signTransactionCallback(calls, invocationSignerDetails)
-      }
-    })((calls: Call[], invocationSignerDetails: InvocationsSignerDetails) => {
-      return this.signRegularTransaction(
-        sessionAuthorizationSignature,
-        sessionRequest,
-        calls,
-        invocationSignerDetails,
-        sessionTypedData,
-      )
-    })
+    const sessionSigner = new SessionSigner(
+      (calls: Call[], invocationSignerDetails: InvocationsSignerDetails) => {
+        return this.signTransaction(
+          sessionAuthorizationSignature,
+          sessionRequest,
+          calls,
+          invocationSignerDetails,
+          sessionTypedData,
+        )
+      },
+    )
 
     return new Account(provider, account.address, sessionSigner)
   }
 
-  private async signRegularTransaction(
+  private async signTransaction(
     sessionAuthorizationSignature: ArraySignatureType,
     sessionRequest: OffChainSession,
     calls: Call[],
@@ -91,32 +95,39 @@ export class DappService {
       calls,
       invocationSignerDetails.cairoVersion,
     )
+
     let txHash
     if (
       Object.values(RPC.ETransactionVersion2).includes(
         invocationSignerDetails.version as any,
       )
     ) {
-      const det = invocationSignerDetails as V2InvocationsSignerDetails
+      const invocationsSignerDetailsV2 =
+        invocationSignerDetails as V2InvocationsSignerDetails
       txHash = hash.calculateInvokeTransactionHash({
-        ...det,
-        senderAddress: det.walletAddress,
+        ...invocationsSignerDetailsV2,
+        senderAddress: invocationsSignerDetailsV2.walletAddress,
         compiledCalldata,
-        version: det.version,
+        version: invocationsSignerDetailsV2.version,
       })
     } else if (
       Object.values(RPC.ETransactionVersion3).includes(
         invocationSignerDetails.version as any,
       )
     ) {
-      const det = invocationSignerDetails as V3InvocationsSignerDetails
+      const invocationsSignerDetailsV3 =
+        invocationSignerDetails as V3InvocationsSignerDetails
       txHash = hash.calculateInvokeTransactionHash({
-        ...det,
-        senderAddress: det.walletAddress,
+        ...invocationsSignerDetailsV3,
+        senderAddress: invocationsSignerDetailsV3.walletAddress,
         compiledCalldata,
-        version: det.version,
-        nonceDataAvailabilityMode: stark.intDAM(det.nonceDataAvailabilityMode),
-        feeDataAvailabilityMode: stark.intDAM(det.feeDataAvailabilityMode),
+        version: invocationsSignerDetailsV3.version,
+        nonceDataAvailabilityMode: stark.intDAM(
+          invocationsSignerDetailsV3.nonceDataAvailabilityMode,
+        ),
+        feeDataAvailabilityMode: stark.intDAM(
+          invocationsSignerDetailsV3.feeDataAvailabilityMode,
+        ),
       })
     } else {
       throw Error("unsupported signTransaction version")

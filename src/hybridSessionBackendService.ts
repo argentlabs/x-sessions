@@ -13,21 +13,22 @@ import {
 } from "starknet"
 
 import { TypedData } from "starknet-types"
-import { BackendSignatureResponse } from "./hybridSessionTypes"
+import {
+  BackendSessionBody,
+  BackendSignSessionBody,
+  BackendSignatureResponse,
+} from "./hybridSessionTypes"
 
 export class ArgentBackendService {
   constructor(
     public pubkey: string,
     public accountSessionSignature: Signature,
-    /* public sessionTypedData: TypedData, */
   ) {}
 
   private getApiBaseUrl(chainId: constants.StarknetChainId): string {
     return chainId === constants.StarknetChainId.SN_MAIN
       ? "https://cloud.argent-api.com/v1"
       : "https://cloud-dev.argent-api.com/v1"
-
-    //"https://api.hydrogen.argent47.net/v1"
   }
 
   public async signTxAndSession(
@@ -52,7 +53,7 @@ export class ArgentBackendService {
 
     let apiBaseUrl = null
 
-    const session = {
+    const session: BackendSessionBody = {
       sessionHash,
       sessionAuthorisation,
       sessionSignature: {
@@ -65,8 +66,7 @@ export class ArgentBackendService {
       },
     }
 
-    // TODO: type
-    const body: any = {
+    const body: BackendSignSessionBody = {
       session,
     }
 
@@ -79,7 +79,6 @@ export class ArgentBackendService {
       apiBaseUrl = this.getApiBaseUrl(txDetailsV2.chainId)
 
       body.transaction = {
-        // Can be either v1 or v3 transaction
         contractAddress: txDetailsV2.walletAddress,
         calldata: compiledCalldata,
         maxFee: txDetailsV2.maxFee.toString(),
