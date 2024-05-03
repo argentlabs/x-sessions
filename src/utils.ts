@@ -89,6 +89,7 @@ const createSessionAccount = async ({
     expiry = BigInt(Date.now()) + 10000n,
     dappKey = ec.starkCurve.utils.randomPrivateKey(),
     metaData,
+    cacheAuthorization = false,
   } = sessionParams
 
   const sessionRequest = createSessionRequest(
@@ -128,6 +129,7 @@ const createSessionAccount = async ({
     sessionRequest,
     stark.formatSignature(accountSessionSignature),
     sessionTypedData,
+    cacheAuthorization,
   )
 }
 

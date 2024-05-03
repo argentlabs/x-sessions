@@ -68,6 +68,7 @@ export class DappService {
     sessionRequest: OffChainSession,
     sessionAuthorizationSignature: ArraySignatureType,
     sessionTypedData: TypedData,
+    cacheAuthorization: boolean,
   ) {
     const sessionSigner = new SessionSigner(
       (calls: Call[], invocationSignerDetails: InvocationsSignerDetails) => {
@@ -77,6 +78,7 @@ export class DappService {
           calls,
           invocationSignerDetails,
           sessionTypedData,
+          cacheAuthorization,
         )
       },
     )
@@ -90,6 +92,7 @@ export class DappService {
     calls: Call[],
     invocationSignerDetails: InvocationsSignerDetails,
     sessionTypedData: TypedData,
+    cacheAuthorization: boolean,
   ): Promise<ArraySignatureType> {
     const compiledCalldata = transaction.getExecuteCalldata(
       calls,
@@ -140,6 +143,7 @@ export class DappService {
       invocationSignerDetails.walletAddress,
       invocationSignerDetails,
       sessionTypedData,
+      cacheAuthorization,
     )
   }
 
@@ -151,6 +155,7 @@ export class DappService {
     accountAddress: string,
     invocationSignerDetails: InvocationsSignerDetails,
     sessionTypedData: TypedData,
+    cacheAuthorization: boolean,
   ): Promise<ArraySignatureType> {
     const session = this.compileSessionHelper(sessionRequest)
 
@@ -174,6 +179,7 @@ export class DappService {
       sessionSignature,
       sessionAuthorizationSignature,
       guardianSignature,
+      cacheAuthorization,
     )
 
     return [SESSION_MAGIC, ...CallData.compile(sessionToken)]
@@ -258,9 +264,11 @@ export class DappService {
     sessionSignature: bigint[],
     session_authorization: string[],
     guardianSignature: BackendSignatureResponse,
+    cache_authorization: boolean,
   ) {
     return {
       session,
+      cache_authorization,
       session_authorization,
       sessionSignature: this.getStarknetSignatureType(
         ec.starkCurve.getStarkKey(this.sessionPk),

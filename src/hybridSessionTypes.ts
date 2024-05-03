@@ -37,6 +37,7 @@ export interface OnChainSession {
 
 export interface SessionToken {
   session: OnChainSession
+  cache_authorization?: boolean
   session_authorization: string[]
   session_signature: CairoCustomEnum
   guardian_signature: CairoCustomEnum
@@ -63,6 +64,7 @@ export type SessionParams = {
   allowedMethods: AllowedMethod[]
   expiry: bigint
   metaData: SessionMetadata
+  cacheAuthorization?: boolean
 }
 
 export type CreateSessionParams = {
