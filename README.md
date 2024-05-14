@@ -16,11 +16,11 @@ pnpm add @argent/x-sessions
 
 ## Demo Dapp
 
-A demo dapp using both hybrid sessions and offchain sessions can be found here [https://github.com/argentlabs/session-keys-example-dapp](https://github.com/argentlabs/session-keys-example-dapp)
+A demo dapp using both sessions and offchain sessions can be found here [https://github.com/argentlabs/session-keys-example-dapp](https://github.com/argentlabs/session-keys-example-dapp)
 
-# Hybrid session keys
+# Session keys
 
-## Creating an Argent hybrid session account
+## Creating an Argent session account
 
 First you need to have a deployed account. This is the account that will authorise the session and interact with the contracts of your dapp.
 
@@ -54,14 +54,16 @@ type SessionParams = {
 }
 ```
 
-The following snippet show how to create and use an hybrid session account
+The following snippet show how to create and use a session account
 
 ```typescript
 import {
   SignSessionError,
   SessionParams,
-  createSessionAccount
+  openSession,
+  buildSessionAccount
 } from "@argent/x-sessions"
+import { ec } from "starknet"
 
 const sessionParams: SessionParams = {
   allowedMethods: [
@@ -73,6 +75,7 @@ const sessionParams: SessionParams = {
   expiry: Math.floor(
     (Date.now() + 1000 * 60 * 60 * 24) / 1000
   ) as any, // ie: 1 day
+  dappKey: ec.starkCurve.utils.randomPrivateKey(),
   metaData: {
     projectID: "test-dapp",
     txFees: [
@@ -89,18 +92,34 @@ const sessionParams: SessionParams = {
 const options: CreateSessionOptions = {  useWalletRequestMethods: true }; 
 */
 
-const sessionAccount = await createSessionAccount({
+// open session and sign message
+const accountSessionSignature = await openSession({
+  account: wallet.account,
+  sessionParams
+  /* wallet, StarknetWindowObject */
+  /* options, */
+})
+
+// create the session account from the current one that will be used to submit transactions
+const sessionRequest = createSessionRequest(
+  sessionParams.allowedMethods,
+  sessionParams.expiry,
+  sessionParams.metaData,
+  sessionParams.dappKey
+)
+
+const sessionAccount = await buildSessionAccount({
   provider: new RpcProvider({
     nodeUrl: "https://starknet-sepolia.public.blastapi.io/rpc/v0_7",
     chainId: constants.StarknetChainId.SN_SEPOLIA
   }),
-  account: wallet.account,
-  sessionParams
-  /* wallet, //StarknetWindowObject */
-  /* options, */
+  accountSessionSignature: stark.formatSignature(
+    accountSessionSignature
+  ),
+  sessionRequest,
+  address, // account address
+  dappKey
 })
-
-// this transaction should get executed without the user having to approve again
 
 try {
   const tx = sessionAccount.execute({
@@ -116,234 +135,3 @@ try {
   console.error((e as SignSessionError).cause, e.message)
 }
 ```
-
-Use this account to send transactions.
-
-# Offchain session keys
-
-## Creating an offchain session as a dapp
-
-First you need to have a deployed account.
-
-This is the account that will authorise the session and interact with the contracts of your dapp.
-
-A session looks like this:
-
-```typescript
-export interface OffchainSessionAllowedMethods {
-  contractAddress: Hex
-  method: string
-}
-
-export interface OffchainRequestSession {
-  sessionKey: string
-  expirationTime: number
-  allowedMethods: OffchainSessionAllowedMethods[]
-}
-
-// part of the message to sign, see below
-export interface GasFees {
-  tokenAddress: Hex
-  maximumAmount: {
-    low: Hex
-    high: Hex
-  }
-}
-```
-
-You can get that by using an injected instance of a wallet **(only webwallet for now)**
-
-```typescript
-const account = windowStarknet.account
-```
-
-Next you need to come up with the permissions you would like for your session.
-
-You also need to generate the session keypair you want to grant these rights to.
-
-This example session will allow the dapp to execute an example endpoint on an example contract without asking the user to approve the transaction again. After signing the session the dapp can execute all transactions listed in `allowedMethods` whenever it wants and as many times as it wants.
-
-**The list of allowedMethods needs to be communicated with Argent, in order to be whitelisted.**
-
-The `method` property needs to be with the following format `method: 0x...` instead of the selector.
-
-The selector name is used only on client side (will be hashed before sending the message)
-
-```typescript
-import {
-  OffchainSessionAccount,
-  createOffchainSession
-} from "@argent/x-sessions"
-import { getStarkKey, utils } from "micro-starknet"
-
-// random key for this example
-const sessionSigner = utils.randomPrivateKey()
-const requestSession: RequestSession = {
-  sessionKey: getStarkKey(sessionSigner),
-  expirationTime: Math.floor(
-    (Date.now() + 1000 * 60 * 60 * 24) / 1000
-  ), // set your time
-  // set your list of contract addresses and methods
-  allowedMethods: [
-    {
-      contractAddress: "0x...",
-      method: "transfer"
-    }
-  ]
-}
-
-const gasFees: GasFees = {
-  tokenAddress: "0x...",
-  maximumAmount: {
-    low: "0x...",
-    high: "0x..."
-  }
-}
-```
-
-Now you can sign the session with the account you have. The user will be asked to sign a message
-
-```typescript
-import { createOffchainSession } from "@argent/x-sessions"
-
-// calls account.signMessage internally
-const signedSession = createOffchainSession(
-  wallet, // StarknetWindowObject,
-  requestSession,
-  window.starknet.account,
-  gasFees
-)
-```
-
-### Using established sessions
-
-With your signed session you can now use it with your dapp to do transactions without the user having to approve again.
-
-```typescript
-import { OffchainSessionAccount } from "@argent/x-sessions"
-
-const offchainSessionAccount = new OffchainSessionAccount(
-  new RpcProvider({ nodeUrl: "url" }), // provider, in this example RpcProvider
-  account.address, // current account address
-  sessionSigner, // in this example has value utils.randomPrivateKey() -- utils from micro-starknet
-  signedSession, // created session
-  account // the actual account
-  wallet // StarknetWindowObject
-)
-
-// this transaction should get executed without the user having to approve again
-const tx = sessionAccount.execute({
-  // lets assume this is a erc20 contract
-  contractAddress: "0x...",
-  selector: "transfer",
-  calldata: [
-    "0x..."
-    // ...
-  ]
-})
-```
-
-Congratulations, you can now use your dapp to execute transactions without the user having to approve!
-
-# Argent-x Sessions
-
-## Creating a session as a dapp
-
-First you need to have a deployed account with a valid Signer. This is the account that will authorise the session and interact with the contracts of your dapp.
-
-A session kind of looks like this:
-
-```typescript
-interface Policy {
-  contractAddress: string
-  selector: string
-}
-
-interface RequestSession {
-  key: string
-  expires: number
-  policies: Policy[]
-}
-```
-
-You can either get that by using the Account and Signer classes provided by starknet.js, or use an injected instance by a wallet.
-
-```typescript
-const account = window.starknet.account
-```
-
-Next you need to come up with the permissions you would like for your session. You also need to generate the session keypair you want to grant these rights to.
-
-This example session will allow the dapp to execute an example endpoint on an example contract without asking the user to approve the transaction again. After signing the session the dapp can execute all transactions listed in `policies` whenever it wants and as many times as it wants.
-
-```typescript
-import { Signer, ec } from "starknet"
-
-// gets signer with random private key you need to store if you want to reuse the session
-const sessionSigner = new Signer()
-
-const requestSession: RequestSession = {
-  key: await sessionSigner.getPublicKey(),
-  expires: Math.floor((Date.now() + 1000 * 60 * 60 * 24) / 1000), // 1 day in seconds
-  policies: [
-    {
-      contractAddress: "0x...",
-      selector: "doAction"
-    }
-  ]
-}
-```
-
-Now you can sign the session with the account you have. Depending on how your account works, the user may get asked to sign a message
-
-```typescript
-import { createSession } from "@argent/x-sessions"
-
-// calls account.signMessage internally
-const signedSession = await createSession(requestSession, account)
-```
-
-### Using established sessions
-
-With your signed session you can now use it with your dapp to do transactions without the user having to approve again.
-
-```typescript
-import { SessionAccount } from "@argent/x-sessions"
-
-const sessionAccount = new SessionAccount(
-  account,
-  account.address,
-  sessionSigner,
-  signedSession
-)
-
-// this transaction should get executed without the user having to approve again
-const tx = sessionAccount.execute({
-  // lets assume this is a erc20 contract
-  contractAddress: "0x...",
-  selector: "transfer",
-  calldata: [
-    "0x..."
-    // ...
-  ]
-})
-```
-
-You can also use the session when you dont have access to the main account (`window.starknet.account`). You only need access to the `signedSession` object and the `sessionSigner`.
-
-```typescript
-const sessionAccount = new SessionAccount(
-  providerWithCorrectNetwork,
-  "0xaccountAddress",
-  sessionSigner,
-  signedSession
-)
-```
-
-Congratulations, you can now use your dapp to execute transactions without the user having to approve!
-
-## Allowing a session as a user
-
-> Note: Sessions are an alpha feature and are not yet available on mainnet. You can use them on testnet, but expect bugs. That is also the reason why it is so inconvenient to activate them for use in Argent X right now.
-
-Sessions can just be used with a new type of account, pioneered by Argent X. This guide will set you up with a new account that can use sessions, by deploying a Plugin Account and registering your first plugin (Sessions Plugin!).

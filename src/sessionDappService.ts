@@ -22,15 +22,16 @@ import {
   typedData,
 } from "starknet"
 
-import { ArgentBackendService } from "./hybridSessionBackendService"
-import { ALLOWED_METHOD_HASH } from "./utils"
+import { ArgentBackendService } from "./sessionBackendService"
+import { ALLOWED_METHOD_HASH, getSessionTypedData } from "./utils"
 import { signerTypeToCustomEnum } from "./signerTypeToCustomEnum"
 import {
   BackendSignatureResponse,
   OffChainSession,
   OnChainSession,
   SignerType,
-} from "./hybridSessionTypes"
+} from "./sessionTypes"
+import { StarknetChainId } from "starknet-types"
 
 const SESSION_MAGIC = shortString.encodeShortString("session-token")
 
@@ -59,16 +60,16 @@ class SessionSigner extends Signer {
 export class DappService {
   constructor(
     private argentBackend: ArgentBackendService,
+    public chainId: StarknetChainId,
     public sessionPk: Uint8Array,
   ) {}
 
   public getAccountWithSessionSigner(
     provider: ProviderInterface,
-    account: Account,
+    address: string,
     sessionRequest: OffChainSession,
     sessionAuthorizationSignature: ArraySignatureType,
-    sessionTypedData: TypedData,
-    cacheAuthorization: boolean,
+    cacheAuthorisation: boolean = false,
   ) {
     const sessionSigner = new SessionSigner(
       (calls: Call[], invocationSignerDetails: InvocationsSignerDetails) => {
@@ -77,13 +78,12 @@ export class DappService {
           sessionRequest,
           calls,
           invocationSignerDetails,
-          sessionTypedData,
-          cacheAuthorization,
+          cacheAuthorisation,
         )
       },
     )
 
-    return new Account(provider, account.address, sessionSigner)
+    return new Account(provider, address, sessionSigner)
   }
 
   private async signTransaction(
@@ -91,8 +91,7 @@ export class DappService {
     sessionRequest: OffChainSession,
     calls: Call[],
     invocationSignerDetails: InvocationsSignerDetails,
-    sessionTypedData: TypedData,
-    cacheAuthorization: boolean,
+    cacheAuthorisation: boolean,
   ): Promise<ArraySignatureType> {
     const compiledCalldata = transaction.getExecuteCalldata(
       calls,
@@ -142,8 +141,7 @@ export class DappService {
       calls,
       invocationSignerDetails.walletAddress,
       invocationSignerDetails,
-      sessionTypedData,
-      cacheAuthorization,
+      cacheAuthorisation,
     )
   }
 
@@ -154,15 +152,16 @@ export class DappService {
     calls: Call[],
     accountAddress: string,
     invocationSignerDetails: InvocationsSignerDetails,
-    sessionTypedData: TypedData,
-    cacheAuthorization: boolean,
+    cacheAuthorisation: boolean,
   ): Promise<ArraySignatureType> {
     const session = this.compileSessionHelper(sessionRequest)
+    const sessionTypedData = getSessionTypedData(sessionRequest, this.chainId)
 
     const sessionSignature = await this.signTxAndSession(
       transactionHash,
       accountAddress,
       sessionTypedData,
+      cacheAuthorisation,
     )
 
     const guardianSignature = await this.argentBackend.signTxAndSession(
@@ -170,6 +169,7 @@ export class DappService {
       invocationSignerDetails,
       sessionTypedData,
       sessionSignature,
+      cacheAuthorisation,
     )
 
     const sessionToken = await this.compileSessionTokenHelper(
@@ -179,7 +179,7 @@ export class DappService {
       sessionSignature,
       sessionAuthorizationSignature,
       guardianSignature,
-      cacheAuthorization,
+      cacheAuthorisation,
     )
 
     return [SESSION_MAGIC, ...CallData.compile(sessionToken)]
@@ -189,15 +189,17 @@ export class DappService {
     transactionHash: string,
     accountAddress: string,
     sessionTypedData: TypedData,
+    cacheAuthorisation: boolean,
   ): Promise<bigint[]> {
     const sessionMessageHash = typedData.getMessageHash(
       sessionTypedData,
       accountAddress,
     )
-    const sessionWithTxHash = hash.computePoseidonHash(
+    const sessionWithTxHash = hash.computePoseidonHashOnElements([
       transactionHash,
       sessionMessageHash,
-    )
+      +cacheAuthorisation,
+    ])
 
     const signature = ec.starkCurve.sign(sessionWithTxHash, this.sessionPk)
     return [signature.r, signature.s]
