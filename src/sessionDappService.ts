@@ -21,17 +21,17 @@ import {
   transaction,
   typedData,
 } from "starknet"
-
+import { StarknetChainId } from "starknet-types"
 import { ArgentBackendService } from "./sessionBackendService"
-import { ALLOWED_METHOD_HASH, getSessionTypedData } from "./utils"
-import { signerTypeToCustomEnum } from "./signerTypeToCustomEnum"
 import {
   BackendSignatureResponse,
+  DappKey,
   OffChainSession,
   OnChainSession,
   SignerType,
 } from "./sessionTypes"
-import { StarknetChainId } from "starknet-types"
+import { signerTypeToCustomEnum } from "./signerTypeToCustomEnum"
+import { ALLOWED_METHOD_HASH, getSessionTypedData } from "./utils"
 
 const SESSION_MAGIC = shortString.encodeShortString("session-token")
 
@@ -61,7 +61,7 @@ export class DappService {
   constructor(
     private argentBackend: ArgentBackendService,
     public chainId: StarknetChainId,
-    public sessionPk: Uint8Array,
+    private dappKey: DappKey,
   ) {}
 
   public getAccountWithSessionSigner(
@@ -195,13 +195,17 @@ export class DappService {
       sessionTypedData,
       accountAddress,
     )
+
     const sessionWithTxHash = hash.computePoseidonHashOnElements([
       transactionHash,
       sessionMessageHash,
       +cacheAuthorisation,
     ])
 
-    const signature = ec.starkCurve.sign(sessionWithTxHash, this.sessionPk)
+    const signature = ec.starkCurve.sign(
+      sessionWithTxHash,
+      this.dappKey.privateKey,
+    )
     return [signature.r, signature.s]
   }
 
@@ -273,7 +277,7 @@ export class DappService {
       cache_authorization,
       session_authorization,
       sessionSignature: this.getStarknetSignatureType(
-        ec.starkCurve.getStarkKey(this.sessionPk),
+        this.dappKey.publicKey,
         sessionSignature,
       ),
       guardianSignature: this.getStarknetSignatureType(

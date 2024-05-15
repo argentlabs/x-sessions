@@ -1,12 +1,4 @@
-import {
-  Account,
-  Signature,
-  ec,
-  hash,
-  shortString,
-  stark,
-  typedData,
-} from "starknet"
+import { Account, Signature, hash, shortString, typedData } from "starknet"
 import {
   StarknetChainId,
   StarknetDomain,
@@ -98,7 +90,7 @@ const buildSessionAccount = async ({
   dappKey,
 }: CreateSessionParams): Promise<Account> => {
   const argentBackendService = new ArgentBackendService(
-    ec.starkCurve.getStarkKey(dappKey),
+    dappKey.publicKey,
     accountSessionSignature,
   )
 
@@ -112,7 +104,7 @@ const buildSessionAccount = async ({
     provider,
     address,
     sessionRequest,
-    stark.formatSignature(accountSessionSignature),
+    accountSessionSignature,
     useCacheAuthorisation,
   )
 }
@@ -133,11 +125,11 @@ const openSession = async ({
   const {
     allowedMethods,
     expiry = BigInt(Date.now()) + 10000n,
-    dappKey,
+    publicDappKey,
     metaData,
   } = sessionParams
 
-  if (!dappKey) {
+  if (!publicDappKey) {
     throw new Error("dappKey is required")
   }
 
@@ -145,7 +137,7 @@ const openSession = async ({
     allowedMethods,
     expiry,
     metaData,
-    ec.starkCurve.getStarkKey(dappKey),
+    publicDappKey,
   )
 
   const sessionTypedData = getSessionTypedData(
@@ -162,10 +154,10 @@ const openSession = async ({
 }
 
 export {
-  openSession,
   buildSessionAccount,
   createSessionRequest,
   getSessionDomain,
   getSessionTypedData,
+  openSession,
   sessionTypes,
 }

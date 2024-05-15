@@ -58,16 +58,21 @@ export type SessionMetadata = {
 }
 
 export type SessionParams = {
-  dappKey?: Uint8Array
+  publicDappKey: string
   allowedMethods: AllowedMethod[]
   expiry: bigint
   metaData: SessionMetadata
 }
 
+export type DappKey = {
+  publicKey: string
+  privateKey: Uint8Array
+}
+
 export type CreateSessionParams = {
   address: string
   accountSessionSignature: ArraySignatureType
-  dappKey: Uint8Array
+  dappKey: DappKey
   provider: ProviderInterface
   sessionRequest: OffChainSession
   useCacheAuthorisation?: boolean

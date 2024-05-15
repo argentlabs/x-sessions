@@ -23,7 +23,7 @@ import { SignSessionError } from "./errors"
 export class ArgentBackendService {
   constructor(
     public pubkey: string,
-    public accountSessionSignature: Signature,
+    private accountSessionSignature: Signature,
   ) {}
 
   private getApiBaseUrl(chainId: constants.StarknetChainId): string {
@@ -58,7 +58,7 @@ export class ArgentBackendService {
     const session: BackendSessionBody = {
       sessionHash,
       sessionAuthorisation,
-      cacheAuthorisation, // cacheAuthorisation
+      cacheAuthorisation,
       sessionSignature: {
         type: "StarknetKey",
         signer: {
