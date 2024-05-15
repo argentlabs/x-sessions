@@ -24,7 +24,7 @@ A demo dapp using both sessions and offchain sessions can be found here [https:/
 
 First you need to have a deployed account. This is the account that will authorise the session and interact with the contracts of your dapp.
 
-To sign the session message and create the session account, the method needed is `createSessionAccount`.
+To sign the session message the method needed is `openSession`. After the user sign the message, a session account can be created using `buildSessionAccount`.
 
 This example session will allow the dapp to execute an example endpoint on an example contract without asking the user to approve the transaction again. After signing the session the dapp can execute all transactions listed in `allowedMethods` whenever it wants and as many times as it wants.
 
