@@ -95,7 +95,6 @@ export async function createOffchainSessionV5(
         { name: "chainId", type: "felt" },
         { name: "version", type: "felt" },
       ],
-      Message: [{ name: "message", type: "felt" }],
     },
     primaryType: "Session",
     message: {
@@ -184,7 +183,6 @@ export async function createOffchainSession(
           { name: "chainId", type: "felt" },
           { name: "version", type: "felt" },
         ],
-        Message: [{ name: "message", type: "felt" }],
       },
       primaryType: "Session",
       message: {
