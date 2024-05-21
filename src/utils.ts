@@ -1,13 +1,19 @@
-import { Account, ec, hash, shortString, stark, typedData } from "starknet"
-import { StarknetChainId, StarknetDomain, TypedData } from "starknet-types"
-import { ArgentBackendService } from "./hybridSessionBackendService"
-import { DappService } from "./hybridSessionDappService"
+import { Account, Signature, hash, shortString, typedData } from "starknet"
+import {
+  StarknetChainId,
+  StarknetDomain,
+  StarknetWindowObject,
+  TypedData,
+} from "starknet-types"
+import { ArgentBackendService } from "./sessionBackendService"
+import { DappService } from "./sessionDappService"
 import {
   AllowedMethod,
   CreateSessionParams,
   OffChainSession,
   SessionMetadata,
-} from "./hybridSessionTypes"
+  SessionParams,
+} from "./sessionTypes"
 
 const sessionTypes = {
   StarknetDomain: [
@@ -36,23 +42,21 @@ export const ALLOWED_METHOD_HASH = typedData.getTypeHash(
 
 // WARNING! Revision is encoded as a number in the StarkNetDomain type and not as shortstring
 // This is due to a bug in the Braavos implementation, and has been kept for compatibility
-const getSessionDomain = async (
-  chainId: StarknetChainId,
-): Promise<StarknetDomain> => ({
+const getSessionDomain = (chainId: StarknetChainId): StarknetDomain => ({
   name: "SessionAccount.session",
   version: shortString.encodeShortString("1"),
   chainId,
   revision: "1",
 })
 
-const getSessionTypedData = async (
+const getSessionTypedData = (
   sessionRequest: OffChainSession,
   chainId: StarknetChainId,
-): Promise<TypedData> => {
+): TypedData => {
   return {
     types: sessionTypes,
     primaryType: "Session",
-    domain: await getSessionDomain(chainId),
+    domain: getSessionDomain(chainId),
     message: {
       "Expires At": sessionRequest.expires_at,
       "Allowed Methods": sessionRequest.allowed_methods,
@@ -77,63 +81,83 @@ const createSessionRequest = (
   ),
 })
 
-const createSessionAccount = async ({
+const buildSessionAccount = async ({
+  useCacheAuthorisation,
+  accountSessionSignature,
+  sessionRequest,
   provider,
-  account,
-  sessionParams,
-  options = {},
-  wallet,
+  address,
+  dappKey,
 }: CreateSessionParams): Promise<Account> => {
+  const argentBackendService = new ArgentBackendService(
+    dappKey.publicKey,
+    accountSessionSignature,
+  )
+
+  const dappService = new DappService(
+    argentBackendService,
+    await provider.getChainId(),
+    dappKey,
+  )
+
+  return dappService.getAccountWithSessionSigner(
+    provider,
+    address,
+    sessionRequest,
+    accountSessionSignature,
+    useCacheAuthorisation,
+  )
+}
+
+interface SignSessionMessageParams {
+  account: Account
+  wallet?: StarknetWindowObject
+  useWalletRequestMethods?: boolean
+  sessionParams: SessionParams
+}
+
+const openSession = async ({
+  account,
+  wallet,
+  useWalletRequestMethods,
+  sessionParams,
+}: SignSessionMessageParams): Promise<string[] | Signature> => {
   const {
     allowedMethods,
     expiry = BigInt(Date.now()) + 10000n,
-    dappKey = ec.starkCurve.utils.randomPrivateKey(),
+    publicDappKey,
     metaData,
   } = sessionParams
+
+  if (!publicDappKey) {
+    throw new Error("dappKey is required")
+  }
 
   const sessionRequest = createSessionRequest(
     allowedMethods,
     expiry,
     metaData,
-    ec.starkCurve.getStarkKey(dappKey),
+    publicDappKey,
   )
 
-  const sessionTypedData = await getSessionTypedData(
+  const sessionTypedData = getSessionTypedData(
     sessionRequest,
     await account.getChainId(),
   )
 
-  const { useWalletRequestMethods } = options
-
-  // When jsonRPC spec will become the standard, this can be removed
-  // and use wallet.request only
-  const accountSessionSignature =
-    useWalletRequestMethods && wallet
-      ? await wallet.request({
-          type: "starknet_signTypedData",
-          params: sessionTypedData,
-        })
-      : await account.signMessage(sessionTypedData)
-
-  const argentBackendService = new ArgentBackendService(
-    ec.starkCurve.getStarkKey(dappKey),
-    accountSessionSignature,
-  )
-
-  const dappService = new DappService(argentBackendService, dappKey)
-
-  return dappService.getAccountWithSessionSigner(
-    provider,
-    account,
-    sessionRequest,
-    stark.formatSignature(accountSessionSignature),
-    sessionTypedData,
-  )
+  return useWalletRequestMethods && wallet
+    ? await wallet.request({
+        type: "starknet_signTypedData",
+        params: sessionTypedData,
+      })
+    : await account.signMessage(sessionTypedData)
 }
 
 export {
-  createSessionAccount,
+  buildSessionAccount,
+  createSessionRequest,
   getSessionDomain,
   getSessionTypedData,
+  openSession,
   sessionTypes,
 }

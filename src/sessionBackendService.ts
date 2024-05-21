@@ -17,13 +17,13 @@ import {
   BackendSessionBody,
   BackendSignSessionBody,
   BackendSignatureResponse,
-} from "./hybridSessionTypes"
+} from "./sessionTypes"
 import { SignSessionError } from "./errors"
 
 export class ArgentBackendService {
   constructor(
     public pubkey: string,
-    public accountSessionSignature: Signature,
+    private accountSessionSignature: Signature,
   ) {}
 
   private getApiBaseUrl(chainId: constants.StarknetChainId): string {
@@ -37,6 +37,7 @@ export class ArgentBackendService {
     transactionsDetail: InvocationsSignerDetails,
     sessionTypedData: TypedData,
     sessionSignature: bigint[],
+    cacheAuthorisation: boolean,
   ): Promise<BackendSignatureResponse> {
     const compiledCalldata = transaction.getExecuteCalldata(
       calls,
@@ -57,6 +58,7 @@ export class ArgentBackendService {
     const session: BackendSessionBody = {
       sessionHash,
       sessionAuthorisation,
+      cacheAuthorisation,
       sessionSignature: {
         type: "StarknetKey",
         signer: {

@@ -1,12 +1,10 @@
 import {
-  Account,
   ArraySignatureType,
   BigNumberish,
   CairoCustomEnum,
   Calldata,
   ProviderInterface,
 } from "starknet"
-import { StarknetWindowObject } from "starknet-types"
 
 export enum SignerType {
   Starknet,
@@ -37,6 +35,7 @@ export interface OnChainSession {
 
 export interface SessionToken {
   session: OnChainSession
+  cache_authorization?: boolean
   session_authorization: string[]
   session_signature: CairoCustomEnum
   guardian_signature: CairoCustomEnum
@@ -59,18 +58,24 @@ export type SessionMetadata = {
 }
 
 export type SessionParams = {
-  dappKey?: Uint8Array
+  publicDappKey: string
   allowedMethods: AllowedMethod[]
   expiry: bigint
   metaData: SessionMetadata
 }
 
+export type DappKey = {
+  publicKey: string
+  privateKey: Uint8Array
+}
+
 export type CreateSessionParams = {
+  address: string
+  accountSessionSignature: ArraySignatureType
+  dappKey: DappKey
   provider: ProviderInterface
-  account: Account
-  sessionParams: SessionParams
-  wallet?: StarknetWindowObject
-  options?: CreateSessionOptions
+  sessionRequest: OffChainSession
+  useCacheAuthorisation?: boolean
 }
 
 export type BackendSignatureResponse = {
@@ -82,6 +87,7 @@ export type BackendSignatureResponse = {
 export type BackendSessionBody = {
   sessionHash: string
   sessionAuthorisation: ArraySignatureType
+  cacheAuthorisation?: boolean
   sessionSignature: {
     type: string
     signer: {
