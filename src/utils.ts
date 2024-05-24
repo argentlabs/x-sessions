@@ -5,8 +5,8 @@ import {
   StarknetWindowObject,
   TypedData,
 } from "starknet-types"
-import { ArgentBackendService } from "./sessionBackendService"
-import { DappService } from "./sessionDappService"
+import { ArgentBackendSessionService } from "./sessionBackendService"
+import { SessionDappService } from "./sessionDappService"
 import {
   AllowedMethod,
   CreateSessionParams,
@@ -52,19 +52,17 @@ const getSessionDomain = (chainId: StarknetChainId): StarknetDomain => ({
 const getSessionTypedData = (
   sessionRequest: OffChainSession,
   chainId: StarknetChainId,
-): TypedData => {
-  return {
-    types: sessionTypes,
-    primaryType: "Session",
-    domain: getSessionDomain(chainId),
-    message: {
-      "Expires At": sessionRequest.expires_at,
-      "Allowed Methods": sessionRequest.allowed_methods,
-      Metadata: sessionRequest.metadata,
-      "Session Key": sessionRequest.session_key_guid,
-    },
-  }
-}
+): TypedData => ({
+  types: sessionTypes,
+  primaryType: "Session",
+  domain: getSessionDomain(chainId),
+  message: {
+    "Expires At": sessionRequest.expires_at,
+    "Allowed Methods": sessionRequest.allowed_methods,
+    Metadata: sessionRequest.metadata,
+    "Session Key": sessionRequest.session_key_guid,
+  },
+})
 
 const createSessionRequest = (
   allowed_methods: AllowedMethod[],
@@ -89,12 +87,12 @@ const buildSessionAccount = async ({
   address,
   dappKey,
 }: CreateSessionParams): Promise<Account> => {
-  const argentBackendService = new ArgentBackendService(
+  const argentBackendService = new ArgentBackendSessionService(
     dappKey.publicKey,
     accountSessionSignature,
   )
 
-  const dappService = new DappService(
+  const dappService = new SessionDappService(
     argentBackendService,
     await provider.getChainId(),
     dappKey,
@@ -110,17 +108,15 @@ const buildSessionAccount = async ({
 }
 
 interface SignSessionMessageParams {
-  account: Account
-  wallet?: StarknetWindowObject
-  useWalletRequestMethods?: boolean
+  wallet: StarknetWindowObject
   sessionParams: SessionParams
+  chainId: StarknetChainId
 }
 
 const openSession = async ({
-  account,
   wallet,
-  useWalletRequestMethods,
   sessionParams,
+  chainId,
 }: SignSessionMessageParams): Promise<string[] | Signature> => {
   const {
     allowedMethods,
@@ -130,7 +126,7 @@ const openSession = async ({
   } = sessionParams
 
   if (!publicDappKey) {
-    throw new Error("dappKey is required")
+    throw new Error("publicDappKey is required")
   }
 
   const sessionRequest = createSessionRequest(
@@ -140,17 +136,12 @@ const openSession = async ({
     publicDappKey,
   )
 
-  const sessionTypedData = getSessionTypedData(
-    sessionRequest,
-    await account.getChainId(),
-  )
+  const sessionTypedData = getSessionTypedData(sessionRequest, chainId)
 
-  return useWalletRequestMethods && wallet
-    ? await wallet.request({
-        type: "starknet_signTypedData",
-        params: sessionTypedData,
-      })
-    : await account.signMessage(sessionTypedData)
+  return await wallet.request({
+    type: "starknet_signTypedData",
+    params: sessionTypedData,
+  })
 }
 
 export {

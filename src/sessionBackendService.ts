@@ -6,21 +6,25 @@ import {
   V2InvocationsSignerDetails,
   V3InvocationsSignerDetails,
   constants,
+  hash,
   num,
   stark,
   transaction,
   typedData,
 } from "starknet"
 
-import { TypedData } from "starknet-types"
+import { StarknetChainId, TypedData, TypedDataRevision } from "starknet-types"
+import { SignSessionError } from "./errors"
+import { OutsideExecution, getTypedData } from "./outsideExecution"
 import {
   BackendSessionBody,
   BackendSignSessionBody,
   BackendSignatureResponse,
+  OffChainSession,
 } from "./sessionTypes"
-import { SignSessionError } from "./errors"
+import { getSessionTypedData } from "./utils"
 
-export class ArgentBackendService {
+export class ArgentBackendSessionService {
   constructor(
     public pubkey: string,
     private accountSessionSignature: Signature,
@@ -29,7 +33,7 @@ export class ArgentBackendService {
   private getApiBaseUrl(chainId: constants.StarknetChainId): string {
     return chainId === constants.StarknetChainId.SN_MAIN
       ? "https://cloud.argent-api.com/v1"
-      : "https://cloud-dev.argent-api.com/v1"
+      : "https://api.hydrogen.argent47.net/v1"
   }
 
   public async signTxAndSession(
@@ -142,36 +146,49 @@ export class ArgentBackendService {
     return json.signature
   }
 
-  /* public async signOutsideTxAndSession(
-    calls: Call[],
+  public async signOutsideTxAndSession(
+    //  calls: Call[],
     sessionTokenToSign: OffChainSession,
     accountAddress: string,
     outsideExecution: OutsideExecution,
     revision: TypedDataRevision,
-  ): Promise<bigint[]> {
-    // TODO backend must verify, timestamps fees, used tokens nfts...
-    const currentTypedData = getTypedData(
-      outsideExecution,
-      await provider.getChainId(),
-      revision,
-    )
+    chainId: StarknetChainId,
+  ): Promise<BackendSignatureResponse> {
+    const currentTypedData = getTypedData(outsideExecution, chainId, revision)
     const messageHash = typedData.getMessageHash(
       currentTypedData,
       accountAddress,
     )
 
     const sessionMessageHash = typedData.getMessageHash(
-      await getSessionTypedData(sessionTokenToSign),
+      getSessionTypedData(sessionTokenToSign, chainId),
       accountAddress,
     )
     const sessionWithTxHash = hash.computePoseidonHash(
       messageHash,
       sessionMessageHash,
     )
-    const signature = ec.starkCurve.sign(
-      sessionWithTxHash,
-      num.toHex(this.backendKey.privateKey),
-    )
-    return [signature.r, signature.s]
-  } */
+
+    const apiBaseUrl: string = this.getApiBaseUrl(chainId)
+
+    const body = {}
+
+    // TODO: wait for backend
+
+    const response = await fetch(`${apiBaseUrl}/cosigner/signSession`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    })
+
+    if (!response.ok) {
+      const error: { status: string } = await response.json()
+      throw new SignSessionError("Sign session error", error.status)
+    }
+
+    const json = await response.json()
+    return json.signature
+  }
 }

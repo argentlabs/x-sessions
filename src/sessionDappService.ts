@@ -5,6 +5,7 @@ import {
   Call,
   CallData,
   InvocationsSignerDetails,
+  Provider,
   ProviderInterface,
   RPC,
   Signer,
@@ -21,8 +22,8 @@ import {
   transaction,
   typedData,
 } from "starknet"
-import { StarknetChainId } from "starknet-types"
-import { ArgentBackendService } from "./sessionBackendService"
+import { StarknetChainId, TypedDataRevision } from "starknet-types"
+import { ArgentBackendSessionService } from "./sessionBackendService"
 import {
   BackendSignatureResponse,
   DappKey,
@@ -32,6 +33,11 @@ import {
 } from "./sessionTypes"
 import { signerTypeToCustomEnum } from "./signerTypeToCustomEnum"
 import { ALLOWED_METHOD_HASH, getSessionTypedData } from "./utils"
+import {
+  OutsideExecution,
+  getOutsideCall,
+  getTypedData,
+} from "./outsideExecution"
 
 const SESSION_MAGIC = shortString.encodeShortString("session-token")
 
@@ -57,9 +63,9 @@ class SessionSigner extends Signer {
   }
 }
 
-export class DappService {
+export class SessionDappService {
   constructor(
-    private argentBackend: ArgentBackendService,
+    private argentBackend: ArgentBackendSessionService,
     public chainId: StarknetChainId,
     private dappKey: DappKey,
   ) {}
@@ -235,6 +241,7 @@ export class DappService {
           )
         },
       )
+
       return tree.getProof(tree.leaves[allowedIndex], tree.leaves)
     })
   }
@@ -297,18 +304,18 @@ export class DappService {
     })
   }
 
-  // TODO: keep for future developments
-
-  /* public async getOutsideExecutionCall(
+  public async getOutsideExecutionCall(
     sessionRequest: OffChainSession,
     sessionAuthorizationSignature: ArraySignatureType,
+    cacheAuthorisation: boolean,
     calls: Call[],
     revision: TypedDataRevision,
     accountAddress: string,
+    provider: ProviderInterface | Provider,
     caller = "ANY_CALLER",
     execute_after = 1,
     execute_before = 999999999999999,
-    nonce = randomStarknetKeyPair().publicKey,
+    nonce: BigNumberish,
   ): Promise<Call> {
     const outsideExecution = {
       caller,
@@ -323,6 +330,7 @@ export class DappService {
       await provider.getChainId(),
       revision,
     )
+
     const messageHash = typedData.getMessageHash(
       currentTypedData,
       accountAddress,
@@ -335,6 +343,7 @@ export class DappService {
       accountAddress,
       revision,
       outsideExecution,
+      cacheAuthorisation,
     )
 
     return {
@@ -345,8 +354,8 @@ export class DappService {
           : "execute_from_outside",
       calldata: CallData.compile({ ...outsideExecution, signature }),
     }
-  } 
-  
+  }
+
   private async compileSessionSignatureFromOutside(
     sessionAuthorizationSignature: ArraySignatureType,
     sessionRequest: OffChainSession,
@@ -355,22 +364,27 @@ export class DappService {
     accountAddress: string,
     revision: TypedDataRevision,
     outsideExecution: OutsideExecution,
+    cacheAuthorisation: boolean,
   ): Promise<ArraySignatureType> {
     const session = this.compileSessionHelper(sessionRequest)
 
     const guardianSignature = await this.argentBackend.signOutsideTxAndSession(
-      calls,
+      // calls,
       sessionRequest,
       accountAddress,
-      outsideExecution as OutsideExecution,
+      outsideExecution,
       revision,
+      this.chainId,
     )
 
+    const sessionTypedData = getSessionTypedData(sessionRequest, this.chainId)
     const sessionSignature = await this.signTxAndSession(
-      sessionRequest,
       transactionHash,
       accountAddress,
+      sessionTypedData,
+      cacheAuthorisation,
     )
+
     const sessionToken = await this.compileSessionTokenHelper(
       session,
       sessionRequest,
@@ -378,9 +392,9 @@ export class DappService {
       sessionSignature,
       sessionAuthorizationSignature,
       guardianSignature,
-      accountAddress,
+      cacheAuthorisation,
     )
 
     return [SESSION_MAGIC, ...CallData.compile(sessionToken)]
-  } */
+  }
 }
