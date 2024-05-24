@@ -126,7 +126,6 @@ describe("SessionDappService", () => {
       },
     ]
 
-    // TODO
     vi.spyOn(argentBackend, "signOutsideTxAndSession").mockImplementation(
       async () => ({
         publicKey: "0x123",
@@ -175,7 +174,6 @@ describe("SessionDappService", () => {
       },
     ]
 
-    // TODO
     vi.spyOn(argentBackend, "signOutsideTxAndSession").mockImplementation(
       async () => ({
         publicKey: "0x123",
