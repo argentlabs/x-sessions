@@ -62,6 +62,7 @@
     "happy-dom": "^13.0.0",
     "husky": "^9.0.11",
     "lint-staged": "^15.2.2",
+    "msw": "^2.3.0",
     "prettier": "^3.2.5",
     "semantic-release": "^23.0.6",
     "starknet-types": "^0.0.5",
