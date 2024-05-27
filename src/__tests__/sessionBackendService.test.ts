@@ -4,13 +4,13 @@ import { setupServer } from "msw/node"
 import { constants, stark } from "starknet"
 import { StarknetChainId } from "starknet-types"
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest"
-import { ARGENT_BACKEND_TESTNET_BASE_URL } from "../constants"
+import { ARGENT_BACKEND_BASE_URL } from "../constants"
 import { ArgentBackendSessionService } from "../sessionBackendService"
 import { BackendSignatureResponse } from "../sessionTypes"
 import { getSessionTypedData } from "../utils"
 
 export const restHandlers = [
-  http.post(`${ARGENT_BACKEND_TESTNET_BASE_URL}/cosigner/signSession`, () => {
+  http.post(`${ARGENT_BACKEND_BASE_URL}/cosigner/signSession`, () => {
     return HttpResponse.json({
       signature: {
         publicKey: "0x123",
@@ -19,18 +19,15 @@ export const restHandlers = [
       },
     })
   }),
-  http.post(
-    `${ARGENT_BACKEND_TESTNET_BASE_URL}/cosigner/signSessionEFO`,
-    () => {
-      return HttpResponse.json({
-        signature: {
-          publicKey: "0x123",
-          r: "10000000000",
-          s: "10000000000",
-        },
-      })
-    },
-  ),
+  http.post(`${ARGENT_BACKEND_BASE_URL}/cosigner/signSessionEFO`, () => {
+    return HttpResponse.json({
+      signature: {
+        publicKey: "0x123",
+        r: "10000000000",
+        s: "10000000000",
+      },
+    })
+  }),
 ]
 
 const server = setupServer(...restHandlers)
@@ -51,19 +48,6 @@ describe("ArgentBackendSessionService", () => {
 
   // Reset handlers after each test `important for test isolation`
   afterEach(() => server.resetHandlers())
-
-  describe("getApiBaseUrl", () => {
-    it("should return the correct API base URL for the given chain ID", () => {
-      const testBaseUrl = (service as any).getApiBaseUrl(
-        constants.StarknetChainId.SN_SEPOLIA,
-      )
-      const prodBaseUrl = (service as any).getApiBaseUrl(
-        constants.StarknetChainId.SN_MAIN,
-      )
-      expect(testBaseUrl).toBe("https://api.hydrogen.argent47.net/v1")
-      expect(prodBaseUrl).toBe("https://cloud.argent-api.com/v1")
-    })
-  })
 
   describe("signTxAndSession", () => {
     it("should sign the transactions and session and return a backend signature response", async () => {

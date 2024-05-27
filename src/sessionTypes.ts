@@ -5,6 +5,7 @@ import {
   Calldata,
   ProviderInterface,
 } from "starknet"
+import { StarknetChainId } from "starknet-types"
 
 export enum SignerType {
   Starknet,
@@ -74,6 +75,7 @@ export type CreateSessionParams = {
   accountSessionSignature: ArraySignatureType
   dappKey: DappKey
   provider: ProviderInterface
+  chainId: StarknetChainId
   sessionRequest: OffChainSession
   useCacheAuthorisation?: boolean
 }

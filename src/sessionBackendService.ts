@@ -6,7 +6,6 @@ import {
   Signature,
   V2InvocationsSignerDetails,
   V3InvocationsSignerDetails,
-  constants,
   hash,
   num,
   stark,
@@ -15,6 +14,7 @@ import {
 } from "starknet"
 
 import { StarknetChainId, TypedData } from "starknet-types"
+import { ARGENT_BACKEND_BASE_URL } from "./constants"
 import { SignSessionError } from "./errors"
 import { OutsideExecution, getTypedData } from "./outsideExecution"
 import {
@@ -24,22 +24,12 @@ import {
   OffChainSession,
 } from "./sessionTypes"
 import { getSessionTypedData } from "./utils"
-import {
-  ARGENT_BACKEND_MAINNET_BASE_URL,
-  ARGENT_BACKEND_TESTNET_BASE_URL,
-} from "./constants"
 
 export class ArgentBackendSessionService {
   constructor(
     public pubkey: string,
     private accountSessionSignature: Signature,
   ) {}
-
-  private getApiBaseUrl(chainId: constants.StarknetChainId): string {
-    return chainId === constants.StarknetChainId.SN_MAIN
-      ? ARGENT_BACKEND_MAINNET_BASE_URL
-      : ARGENT_BACKEND_TESTNET_BASE_URL
-  }
 
   public async signTxAndSession(
     calls: Call[],
@@ -61,8 +51,6 @@ export class ArgentBackendSessionService {
     const sessionAuthorisation = stark.formatSignature(
       this.accountSessionSignature,
     )
-
-    let apiBaseUrl: string | null = null
 
     const session: BackendSessionBody = {
       sessionHash,
@@ -88,7 +76,6 @@ export class ArgentBackendSessionService {
       )
     ) {
       const txDetailsV2 = transactionsDetail as V2InvocationsSignerDetails
-      apiBaseUrl = this.getApiBaseUrl(txDetailsV2.chainId)
 
       body.transaction = {
         contractAddress: txDetailsV2.walletAddress,
@@ -104,7 +91,6 @@ export class ArgentBackendSessionService {
       )
     ) {
       const txDetailsV3 = transactionsDetail as V3InvocationsSignerDetails
-      apiBaseUrl = this.getApiBaseUrl(txDetailsV3.chainId)
 
       body.transaction = {
         sender_address: txDetailsV3.walletAddress,
@@ -134,13 +120,16 @@ export class ArgentBackendSessionService {
       throw Error("unsupported signTransaction version")
     }
 
-    const response = await fetch(`${apiBaseUrl}/cosigner/signSession`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
+    const response = await fetch(
+      `${ARGENT_BACKEND_BASE_URL}/cosigner/signSession`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
       },
-      body: JSON.stringify(body),
-    })
+    )
 
     if (!response.ok) {
       const error: { status: string } = await response.json()
@@ -192,8 +181,6 @@ export class ArgentBackendSessionService {
       },
     }
 
-    const apiBaseUrl: string = this.getApiBaseUrl(chainId)
-
     const message = {
       type: "eip712",
       accountAddress,
@@ -206,13 +193,16 @@ export class ArgentBackendSessionService {
       message,
     }
 
-    const response = await fetch(`${apiBaseUrl}/cosigner/signSessionEFO`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
+    const response = await fetch(
+      `${ARGENT_BACKEND_BASE_URL}/cosigner/signSessionEFO`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
       },
-      body: JSON.stringify(body),
-    })
+    )
 
     if (!response.ok) {
       const error: { status: string } = await response.json()

@@ -10,8 +10,6 @@ The user is guaranteed that the dapp can only execute transactions that comply t
 npm install @argent/x-sessions
 # or
 pnpm add @argent/x-sessions
-# or
-pnpm add @argent/x-sessions
 ```
 
 ## Demo Dapp
@@ -87,17 +85,11 @@ const sessionParams: SessionParams = {
   }
 }
 
-/* 
-// Optional  parameter to use json rpc spec with wallets
-const options: CreateSessionOptions = {  useWalletRequestMethods: true }; 
-*/
-
 // open session and sign message
 const accountSessionSignature = await openSession({
-  account: wallet.account,
-  sessionParams
-  /* wallet, StarknetWindowObject */
-  /* options, */
+  wallet, // StarknetWindowObject
+  sessionParams, // SessionParams
+  chainId // StarknetChainId
 })
 
 // create the session account from the current one that will be used to submit transactions
@@ -109,14 +101,16 @@ const sessionRequest = createSessionRequest(
 )
 
 const sessionAccount = await buildSessionAccount({
-  provider: new RpcProvider({
-    nodeUrl: "https://starknet-sepolia.public.blastapi.io/rpc/v0_7",
-    chainId: constants.StarknetChainId.SN_SEPOLIA
-  }),
+  useCacheAuthorisation: false, // optional and defaulted to false, will be added in future developments
   accountSessionSignature: stark.formatSignature(
     accountSessionSignature
   ),
   sessionRequest,
+  chainId, // StarknetChainId
+  provider: new RpcProvider({
+    nodeUrl: "https://starknet-sepolia.public.blastapi.io/rpc/v0_7",
+    chainId: constants.StarknetChainId.SN_SEPOLIA
+  }),
   address, // account address
   dappKey
 })
@@ -135,3 +129,5 @@ try {
   console.error((e as SignSessionError).cause, e.message)
 }
 ```
+
+## execute from outside
