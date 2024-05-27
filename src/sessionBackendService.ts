@@ -24,6 +24,10 @@ import {
   OffChainSession,
 } from "./sessionTypes"
 import { getSessionTypedData } from "./utils"
+import {
+  ARGENT_BACKEND_MAINNET_BASE_URL,
+  ARGENT_BACKEND_TESTNET_BASE_URL,
+} from "./constants"
 
 export class ArgentBackendSessionService {
   constructor(
@@ -33,8 +37,8 @@ export class ArgentBackendSessionService {
 
   private getApiBaseUrl(chainId: constants.StarknetChainId): string {
     return chainId === constants.StarknetChainId.SN_MAIN
-      ? "https://cloud.argent-api.com/v1"
-      : "https://api.hydrogen.argent47.net/v1"
+      ? ARGENT_BACKEND_MAINNET_BASE_URL
+      : ARGENT_BACKEND_TESTNET_BASE_URL
   }
 
   public async signTxAndSession(

@@ -4,12 +4,13 @@ import { setupServer } from "msw/node"
 import { constants, stark } from "starknet"
 import { StarknetChainId } from "starknet-types"
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest"
+import { ARGENT_BACKEND_TESTNET_BASE_URL } from "../constants"
 import { ArgentBackendSessionService } from "../sessionBackendService"
 import { BackendSignatureResponse } from "../sessionTypes"
 import { getSessionTypedData } from "../utils"
 
 export const restHandlers = [
-  http.post("https://api.hydrogen.argent47.net/v1/cosigner/signSession", () => {
+  http.post(`${ARGENT_BACKEND_TESTNET_BASE_URL}/cosigner/signSession`, () => {
     return HttpResponse.json({
       signature: {
         publicKey: "0x123",
@@ -19,7 +20,7 @@ export const restHandlers = [
     })
   }),
   http.post(
-    "https://api.hydrogen.argent47.net/v1/cosigner/signSessionEFO",
+    `${ARGENT_BACKEND_TESTNET_BASE_URL}/cosigner/signSessionEFO`,
     () => {
       return HttpResponse.json({
         signature: {
