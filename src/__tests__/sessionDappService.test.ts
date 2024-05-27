@@ -6,7 +6,7 @@ import {
   ec,
   stark,
 } from "starknet"
-import { StarknetChainId, TypedDataRevision } from "starknet-types"
+import { StarknetChainId } from "starknet-types"
 import { beforeAll, describe, expect, it, vi } from "vitest"
 import { ArgentBackendSessionService } from "../sessionBackendService"
 import { SessionDappService } from "../sessionDappService"
@@ -107,65 +107,15 @@ describe("SessionDappService", () => {
     })
   })
 
-  it("should get an outside execution call with execute_from_outside", async () => {
-    const provider = new RpcProvider()
-    vi.spyOn(provider, "getChainId").mockImplementation(
-      async () => StarknetChainId.SN_SEPOLIA,
-    )
-    const address = stark.randomAddress()
-    const revision = TypedDataRevision.Legacy
-    const caller = "0x123"
-    const execute_after = 1
-    const execute_before = 999999999999999
-    const nonce = 0
-    const calls: Call[] = [
-      {
-        contractAddress: allowedMethodContractAddress,
-        entrypoint: "some_method",
-        calldata: ["0x123"],
-      },
-    ]
-
-    vi.spyOn(argentBackend, "signOutsideTxAndSession").mockImplementation(
-      async () => ({
-        publicKey: "0x123",
-        r: 10n,
-        s: 10n,
-      }),
-    )
-
-    const outsideExecutionCall =
-      await sessionDappService.getOutsideExecutionCall(
-        sessionRequest,
-        sessionAuthorizationSignature,
-        cacheAuthorisation,
-        calls,
-        revision,
-        address,
-        provider,
-        caller,
-        execute_after,
-        execute_before,
-        nonce,
-      )
-
-    expect(outsideExecutionCall.entrypoint).toEqual("execute_from_outside")
-    expect(outsideExecutionCall.contractAddress).toEqual(address)
-    expect(outsideExecutionCall.calldata).toBeInstanceOf(Array)
-    expect(outsideExecutionCall.calldata).not.toBe([])
-  })
-
   it("should get an outside execution call with execute_from_outside_v2", async () => {
     const provider = new RpcProvider()
     vi.spyOn(provider, "getChainId").mockImplementation(
       async () => StarknetChainId.SN_SEPOLIA,
     )
     const address = stark.randomAddress()
-    const revision = TypedDataRevision.Active
     const caller = "0x123"
     const execute_after = 1
     const execute_before = 999999999999999
-    const nonce = 0
     const calls: Call[] = [
       {
         contractAddress: allowedMethodContractAddress,
@@ -188,13 +138,11 @@ describe("SessionDappService", () => {
         sessionAuthorizationSignature,
         cacheAuthorisation,
         calls,
-        revision,
         address,
-        provider,
+        StarknetChainId.SN_SEPOLIA,
         caller,
         execute_after,
         execute_before,
-        nonce,
       )
 
     expect(outsideExecutionCall.entrypoint).toEqual("execute_from_outside_v2")

@@ -1,4 +1,5 @@
 import {
+  ArraySignatureType,
   Call,
   InvocationsSignerDetails,
   RPC,
@@ -13,7 +14,7 @@ import {
   typedData,
 } from "starknet"
 
-import { StarknetChainId, TypedData, TypedDataRevision } from "starknet-types"
+import { StarknetChainId, TypedData } from "starknet-types"
 import { SignSessionError } from "./errors"
 import { OutsideExecution, getTypedData } from "./outsideExecution"
 import {
@@ -147,14 +148,14 @@ export class ArgentBackendSessionService {
   }
 
   public async signOutsideTxAndSession(
-    //  calls: Call[],
     sessionTokenToSign: OffChainSession,
     accountAddress: string,
     outsideExecution: OutsideExecution,
-    revision: TypedDataRevision,
+    sessionSignature: ArraySignatureType,
+    cacheAuthorisation: boolean,
     chainId: StarknetChainId,
   ): Promise<BackendSignatureResponse> {
-    const currentTypedData = getTypedData(outsideExecution, chainId, revision)
+    const currentTypedData = getTypedData(outsideExecution, chainId)
     const messageHash = typedData.getMessageHash(
       currentTypedData,
       accountAddress,
@@ -169,13 +170,39 @@ export class ArgentBackendSessionService {
       sessionMessageHash,
     )
 
+    const sessionAuthorisation = stark.formatSignature(
+      this.accountSessionSignature,
+    )
+
+    const session: BackendSessionBody = {
+      sessionHash: sessionWithTxHash,
+      sessionAuthorisation,
+      cacheAuthorisation,
+      sessionSignature: {
+        type: "StarknetKey",
+        signer: {
+          publicKey: this.pubkey,
+          r: sessionSignature[0].toString(),
+          s: sessionSignature[1].toString(),
+        },
+      },
+    }
+
     const apiBaseUrl: string = this.getApiBaseUrl(chainId)
 
-    const body = {}
+    const message = {
+      type: "eip712",
+      accountAddress,
+      chain: "starknet",
+      message: currentTypedData,
+    }
 
-    // TODO: wait for backend
+    const body = {
+      session,
+      message,
+    }
 
-    const response = await fetch(`${apiBaseUrl}/cosigner/signSession`, {
+    const response = await fetch(`${apiBaseUrl}/cosigner/signSessionEFO`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
