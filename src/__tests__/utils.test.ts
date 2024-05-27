@@ -222,6 +222,7 @@ describe("Utils", () => {
       const address = stark.randomAddress()
 
       const provider = new RpcProvider()
+      const chainId = StarknetChainId.SN_SEPOLIA
       vi.spyOn(provider, "getChainId").mockImplementation(async () => chainId)
 
       const result = await buildSessionAccount({
@@ -229,6 +230,7 @@ describe("Utils", () => {
         accountSessionSignature,
         sessionRequest,
         provider,
+        chainId,
         address,
         dappKey,
       })
