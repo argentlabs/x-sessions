@@ -87,10 +87,12 @@ const buildSessionAccount = async ({
   chainId,
   address,
   dappKey,
+  argentBackendBaseUrl,
 }: CreateSessionParams): Promise<Account> => {
   const argentBackendService = new ArgentBackendSessionService(
     dappKey.publicKey,
     accountSessionSignature,
+    argentBackendBaseUrl,
   )
 
   const dappService = new SessionDappService(

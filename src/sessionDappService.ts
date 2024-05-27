@@ -311,19 +311,21 @@ export class SessionDappService {
     calls: Call[],
     accountAddress: string,
     chainId: StarknetChainId,
-    caller = "ANY_CALLER",
-    execute_after = 1,
-    execute_before = 999999999999999,
+    caller?: string,
+    execute_after = 1, // todo
+    execute_before = 999999999999999, // todo
     nonce?: BigNumberish,
   ): Promise<Call> {
     const randomNonce = u.hexToNumber(
       u.bytesToHex(ec.starkCurve.utils.randomPrivateKey()),
     )
     const outsideExecution = {
-      caller,
+      caller: caller || shortString.encodeShortString("ANY_CALLER"),
       nonce: nonce ?? randomNonce,
-      execute_after,
-      execute_before,
+      execute_after:
+        execute_after ?? new Date(Date.now() + 1000 * 60 * 20).getTime(),
+      execute_before:
+        execute_before ?? new Date(Date.now() - 1000 * 60 * 5).getTime(),
       calls: calls.map((call) => getOutsideCall(call)),
     }
 

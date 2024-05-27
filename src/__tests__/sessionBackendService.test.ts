@@ -4,13 +4,12 @@ import { setupServer } from "msw/node"
 import { constants, stark } from "starknet"
 import { StarknetChainId } from "starknet-types"
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest"
-import { ARGENT_BACKEND_BASE_URL } from "../constants"
 import { ArgentBackendSessionService } from "../sessionBackendService"
 import { BackendSignatureResponse } from "../sessionTypes"
 import { getSessionTypedData } from "../utils"
 
 export const restHandlers = [
-  http.post(`${ARGENT_BACKEND_BASE_URL}/cosigner/signSession`, () => {
+  http.post("http://localhost:3000/cosigner/signSession", () => {
     return HttpResponse.json({
       signature: {
         publicKey: "0x123",
@@ -19,7 +18,7 @@ export const restHandlers = [
       },
     })
   }),
-  http.post(`${ARGENT_BACKEND_BASE_URL}/cosigner/signSessionEFO`, () => {
+  http.post("http://localhost:3000/cosigner/signSessionEFO", () => {
     return HttpResponse.json({
       signature: {
         publicKey: "0x123",
@@ -38,6 +37,7 @@ describe("ArgentBackendSessionService", () => {
   const service = new ArgentBackendSessionService(
     pubkey,
     accountSessionSignature,
+    "http://localhost:3000",
   )
 
   // Start server before all tests

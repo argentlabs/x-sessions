@@ -29,6 +29,7 @@ export class ArgentBackendSessionService {
   constructor(
     public pubkey: string,
     private accountSessionSignature: Signature,
+    private argentBackendBaseUrl = ARGENT_BACKEND_BASE_URL,
   ) {}
 
   public async signTxAndSession(
@@ -121,7 +122,7 @@ export class ArgentBackendSessionService {
     }
 
     const response = await fetch(
-      `${ARGENT_BACKEND_BASE_URL}/cosigner/signSession`,
+      `${this.argentBackendBaseUrl}/cosigner/signSession`,
       {
         method: "POST",
         headers: {
@@ -193,14 +194,19 @@ export class ArgentBackendSessionService {
       message,
     }
 
+    // needed due to bigint serialization
+    const stringifiedBody = JSON.stringify(body, (_, v) =>
+      typeof v === "bigint" ? v.toString() : v,
+    )
+
     const response = await fetch(
-      `${ARGENT_BACKEND_BASE_URL}/cosigner/signSessionEFO`,
+      `${this.argentBackendBaseUrl}/cosigner/signSessionEFO`,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(body),
+        body: stringifiedBody,
       },
     )
 

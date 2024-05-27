@@ -78,6 +78,7 @@ export type CreateSessionParams = {
   chainId: StarknetChainId
   sessionRequest: OffChainSession
   useCacheAuthorisation?: boolean
+  argentBackendBaseUrl?: string
 }
 
 export type BackendSignatureResponse = {
