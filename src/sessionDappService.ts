@@ -13,6 +13,7 @@ import {
   V3InvocationsSignerDetails,
   byteArray,
   ec,
+  encode,
   hash,
   merkle,
   selector,
@@ -22,7 +23,13 @@ import {
   typedData,
 } from "starknet"
 import { StarknetChainId } from "starknet-types"
-import { ArgentBackendService } from "./sessionBackendService"
+import * as u from "@noble/curves/abstract/utils"
+import {
+  OutsideExecution,
+  getOutsideCall,
+  getTypedData,
+} from "./outsideExecution"
+import { ArgentBackendSessionService } from "./sessionBackendService"
 import {
   BackendSignatureResponse,
   DappKey,
@@ -57,9 +64,9 @@ class SessionSigner extends Signer {
   }
 }
 
-export class DappService {
+export class SessionDappService {
   constructor(
-    private argentBackend: ArgentBackendService,
+    private argentBackend: ArgentBackendSessionService,
     public chainId: StarknetChainId,
     private dappKey: DappKey,
   ) {}
@@ -235,6 +242,7 @@ export class DappService {
           )
         },
       )
+
       return tree.getProof(tree.leaves[allowedIndex], tree.leaves)
     })
   }
@@ -297,80 +305,88 @@ export class DappService {
     })
   }
 
-  // TODO: keep for future developments
-
-  /* public async getOutsideExecutionCall(
+  public async getOutsideExecutionCall(
     sessionRequest: OffChainSession,
     sessionAuthorizationSignature: ArraySignatureType,
+    cacheAuthorisation: boolean,
     calls: Call[],
-    revision: TypedDataRevision,
     accountAddress: string,
-    caller = "ANY_CALLER",
-    execute_after = 1,
-    execute_before = 999999999999999,
-    nonce = randomStarknetKeyPair().publicKey,
+    chainId: StarknetChainId,
+    caller?: string,
+    execute_after?: BigNumberish,
+    execute_before?: BigNumberish,
+    nonce?: BigNumberish,
   ): Promise<Call> {
+    const defaultCaller = shortString.encodeShortString("ANY_CALLER")
+
+    const randomNonce = encode.addHexPrefix(
+      u.bytesToHex(ec.starkCurve.utils.randomPrivateKey()),
+    )
+
+    const now = Date.now()
+    const defaultExecuteBefore = Math.floor((now + 60_000 * 20) / 1000)
+    const defaultExecuteAfter = Math.floor((now - 60_000 * 10) / 1000)
+
     const outsideExecution = {
-      caller,
-      nonce,
-      execute_after,
-      execute_before,
+      caller: caller || defaultCaller,
+      nonce: nonce || randomNonce,
+      execute_after: execute_after || defaultExecuteAfter,
+      execute_before: execute_before || defaultExecuteBefore,
       calls: calls.map((call) => getOutsideCall(call)),
     }
 
-    const currentTypedData = getTypedData(
-      outsideExecution,
-      await provider.getChainId(),
-      revision,
-    )
+    const currentTypedData = getTypedData(outsideExecution, chainId)
+
     const messageHash = typedData.getMessageHash(
       currentTypedData,
       accountAddress,
     )
+
     const signature = await this.compileSessionSignatureFromOutside(
       sessionAuthorizationSignature,
       sessionRequest,
       messageHash,
       calls,
       accountAddress,
-      revision,
       outsideExecution,
+      cacheAuthorisation,
     )
 
     return {
       contractAddress: accountAddress,
-      entrypoint:
-        revision == typedData.TypedDataRevision.Active
-          ? "execute_from_outside_v2"
-          : "execute_from_outside",
+      entrypoint: "execute_from_outside_v2",
       calldata: CallData.compile({ ...outsideExecution, signature }),
     }
-  } 
-  
+  }
+
   private async compileSessionSignatureFromOutside(
     sessionAuthorizationSignature: ArraySignatureType,
     sessionRequest: OffChainSession,
     transactionHash: string,
     calls: Call[],
     accountAddress: string,
-    revision: TypedDataRevision,
     outsideExecution: OutsideExecution,
+    cacheAuthorisation: boolean,
   ): Promise<ArraySignatureType> {
     const session = this.compileSessionHelper(sessionRequest)
 
-    const guardianSignature = await this.argentBackend.signOutsideTxAndSession(
-      calls,
-      sessionRequest,
-      accountAddress,
-      outsideExecution as OutsideExecution,
-      revision,
-    )
-
+    const sessionTypedData = getSessionTypedData(sessionRequest, this.chainId)
     const sessionSignature = await this.signTxAndSession(
-      sessionRequest,
       transactionHash,
       accountAddress,
+      sessionTypedData,
+      cacheAuthorisation,
     )
+
+    const guardianSignature = await this.argentBackend.signOutsideTxAndSession(
+      sessionRequest,
+      accountAddress,
+      outsideExecution,
+      sessionSignature,
+      cacheAuthorisation,
+      this.chainId,
+    )
+
     const sessionToken = await this.compileSessionTokenHelper(
       session,
       sessionRequest,
@@ -378,9 +394,9 @@ export class DappService {
       sessionSignature,
       sessionAuthorizationSignature,
       guardianSignature,
-      accountAddress,
+      cacheAuthorisation,
     )
 
     return [SESSION_MAGIC, ...CallData.compile(sessionToken)]
-  } */
+  }
 }

@@ -10,8 +10,6 @@ The user is guaranteed that the dapp can only execute transactions that comply t
 npm install @argent/x-sessions
 # or
 pnpm add @argent/x-sessions
-# or
-pnpm add @argent/x-sessions
 ```
 
 ## Demo Dapp
@@ -87,17 +85,11 @@ const sessionParams: SessionParams = {
   }
 }
 
-/* 
-// Optional  parameter to use json rpc spec with wallets
-const options: CreateSessionOptions = {  useWalletRequestMethods: true }; 
-*/
-
 // open session and sign message
 const accountSessionSignature = await openSession({
-  account: wallet.account,
-  sessionParams
-  /* wallet, StarknetWindowObject */
-  /* options, */
+  wallet, // StarknetWindowObject
+  sessionParams, // SessionParams
+  chainId // StarknetChainId
 })
 
 // create the session account from the current one that will be used to submit transactions
@@ -109,14 +101,16 @@ const sessionRequest = createSessionRequest(
 )
 
 const sessionAccount = await buildSessionAccount({
-  provider: new RpcProvider({
-    nodeUrl: "https://starknet-sepolia.public.blastapi.io/rpc/v0_7",
-    chainId: constants.StarknetChainId.SN_SEPOLIA
-  }),
+  useCacheAuthorisation: false, // optional and defaulted to false, will be added in future developments
   accountSessionSignature: stark.formatSignature(
     accountSessionSignature
   ),
   sessionRequest,
+  chainId, // StarknetChainId
+  provider: new RpcProvider({
+    nodeUrl: "https://starknet-sepolia.public.blastapi.io/rpc/v0_7",
+    chainId: constants.StarknetChainId.SN_SEPOLIA
+  }),
   address, // account address
   dappKey
 })
@@ -135,3 +129,52 @@ try {
   console.error((e as SignSessionError).cause, e.message)
 }
 ```
+
+## Execute from outside
+
+Executing transactions “from outside” allows an account to submit transactions on behalf of a user account, as long as they have the relevant signatures.
+
+This package expose a method in order to get the Call required to perform an execution from outside.
+
+```typescript
+// instantiate argent backend session service
+const beService = new ArgentBackendSessionService(
+  dappKey.publicKey,
+  accountSessionSignature
+)
+
+// instantiate dapp session service
+const sessionDappService = new SessionDappService(
+  beService,
+  chainId,
+  dappKey
+)
+
+// example for creating the calldata
+const erc20Contract = new Contract(
+  Erc20Abi as Abi,
+  ETHTokenAddress,
+  sessionAccount as any
+)
+const calldata = erc20Contract.populate("transfer", {
+  recipient: address,
+  amount: parseInputAmountToUint256(amount)
+})
+
+// get execute from outside data
+const { contractAddress, entrypoint, calldata } =
+  await sessionDappService.getOutsideExecutionCall(
+    sessionRequest,
+    stark.formatSignature(accountSessionSignature),
+    false,
+    [calldata],
+    address, // the account address
+    chainId,
+    "ANY_CALLER", // Optional: default value ANY_CALLER
+    execute_after, // Optional: timestamp in seconds - this is the lower value in the range. Default value: 5 mins before Date.now()
+    execute_before, // Optional: timestamp in seconds - this is the upper value in the range. Default value: 20 mins after Date.now()
+    nonce: BigNumberish, // Optional: nonce, default value is a random nonce
+  )
+```
+
+Another account can then use object `{ contractAddress, entrypoint, calldata }` to execute the transaction.

@@ -5,32 +5,30 @@ import {
   Signature,
   V2InvocationsSignerDetails,
   V3InvocationsSignerDetails,
-  constants,
   num,
   stark,
   transaction,
   typedData,
 } from "starknet"
 
-import { TypedData } from "starknet-types"
+import { StarknetChainId, TypedData } from "starknet-types"
+import { ARGENT_BACKEND_BASE_URL } from "./constants"
+import { SignSessionError } from "./errors"
+import { OutsideExecution, getTypedData } from "./outsideExecution"
 import {
   BackendSessionBody,
   BackendSignSessionBody,
   BackendSignatureResponse,
+  OffChainSession,
 } from "./sessionTypes"
-import { SignSessionError } from "./errors"
+import { getSessionTypedData } from "./utils"
 
-export class ArgentBackendService {
+export class ArgentBackendSessionService {
   constructor(
     public pubkey: string,
     private accountSessionSignature: Signature,
+    private argentBackendBaseUrl = ARGENT_BACKEND_BASE_URL,
   ) {}
-
-  private getApiBaseUrl(chainId: constants.StarknetChainId): string {
-    return chainId === constants.StarknetChainId.SN_MAIN
-      ? "https://cloud.argent-api.com/v1"
-      : "https://cloud-dev.argent-api.com/v1"
-  }
 
   public async signTxAndSession(
     calls: Call[],
@@ -52,8 +50,6 @@ export class ArgentBackendService {
     const sessionAuthorisation = stark.formatSignature(
       this.accountSessionSignature,
     )
-
-    let apiBaseUrl: string | null = null
 
     const session: BackendSessionBody = {
       sessionHash,
@@ -79,7 +75,6 @@ export class ArgentBackendService {
       )
     ) {
       const txDetailsV2 = transactionsDetail as V2InvocationsSignerDetails
-      apiBaseUrl = this.getApiBaseUrl(txDetailsV2.chainId)
 
       body.transaction = {
         contractAddress: txDetailsV2.walletAddress,
@@ -95,7 +90,6 @@ export class ArgentBackendService {
       )
     ) {
       const txDetailsV3 = transactionsDetail as V3InvocationsSignerDetails
-      apiBaseUrl = this.getApiBaseUrl(txDetailsV3.chainId)
 
       body.transaction = {
         sender_address: txDetailsV3.walletAddress,
@@ -125,13 +119,16 @@ export class ArgentBackendService {
       throw Error("unsupported signTransaction version")
     }
 
-    const response = await fetch(`${apiBaseUrl}/cosigner/signSession`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
+    const response = await fetch(
+      `${this.argentBackendBaseUrl}/cosigner/signSession`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
       },
-      body: JSON.stringify(body),
-    })
+    )
 
     if (!response.ok) {
       const error: { status: string } = await response.json()
@@ -142,36 +139,72 @@ export class ArgentBackendService {
     return json.signature
   }
 
-  /* public async signOutsideTxAndSession(
-    calls: Call[],
+  public async signOutsideTxAndSession(
     sessionTokenToSign: OffChainSession,
     accountAddress: string,
     outsideExecution: OutsideExecution,
-    revision: TypedDataRevision,
-  ): Promise<bigint[]> {
-    // TODO backend must verify, timestamps fees, used tokens nfts...
-    const currentTypedData = getTypedData(
-      outsideExecution,
-      await provider.getChainId(),
-      revision,
-    )
-    const messageHash = typedData.getMessageHash(
-      currentTypedData,
+    sessionSignature: bigint[],
+    cacheAuthorisation: boolean,
+    chainId: StarknetChainId,
+  ): Promise<BackendSignatureResponse> {
+    const sessionMessageHash = typedData.getMessageHash(
+      getSessionTypedData(sessionTokenToSign, chainId),
       accountAddress,
+    )
+    const currentTypedData = getTypedData(outsideExecution, chainId)
+
+    const sessionAuthorisation = stark.formatSignature(
+      this.accountSessionSignature,
     )
 
-    const sessionMessageHash = typedData.getMessageHash(
-      await getSessionTypedData(sessionTokenToSign),
+    const session: BackendSessionBody = {
+      sessionHash: sessionMessageHash,
+      sessionAuthorisation,
+      cacheAuthorisation,
+      sessionSignature: {
+        type: "StarknetKey",
+        signer: {
+          publicKey: this.pubkey,
+          r: sessionSignature[0].toString(),
+          s: sessionSignature[1].toString(),
+        },
+      },
+    }
+
+    const message = {
+      type: "eip712",
       accountAddress,
+      chain: "starknet",
+      message: currentTypedData,
+    }
+
+    const body = {
+      session,
+      message,
+    }
+
+    // needed due to bigint serialization
+    const stringifiedBody = JSON.stringify(body, (_, v) =>
+      typeof v === "bigint" ? v.toString() : v,
     )
-    const sessionWithTxHash = hash.computePoseidonHash(
-      messageHash,
-      sessionMessageHash,
+
+    const response = await fetch(
+      `${this.argentBackendBaseUrl}/cosigner/signSessionEFO`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: stringifiedBody,
+      },
     )
-    const signature = ec.starkCurve.sign(
-      sessionWithTxHash,
-      num.toHex(this.backendKey.privateKey),
-    )
-    return [signature.r, signature.s]
-  } */
+
+    if (!response.ok) {
+      const error: { status: string } = await response.json()
+      throw new SignSessionError("Sign session error", error.status)
+    }
+
+    const json = await response.json()
+    return json.signature
+  }
 }
