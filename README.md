@@ -170,7 +170,7 @@ const { contractAddress, entrypoint, calldata } =
     [calldata],
     address, // the account address
     chainId,
-    "ANY_CALLER", // Optional: default value ANY_CALLER
+    shortString.encodeShortString("ANY_CALLER"), // Optional: default value ANY_CALLER
     execute_after, // Optional: timestamp in seconds - this is the lower value in the range. Default value: 5 mins before Date.now()
     execute_before, // Optional: timestamp in seconds - this is the upper value in the range. Default value: 20 mins after Date.now()
     nonce: BigNumberish, // Optional: nonce, default value is a random nonce
