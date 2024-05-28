@@ -325,7 +325,7 @@ export class SessionDappService {
 
     const now = Date.now()
     const defaultExecuteBefore = Math.floor((now + 60_000 * 20) / 1000)
-    const defaultExecuteAfter = Math.floor((now - 60_000 * 20) / 1000)
+    const defaultExecuteAfter = Math.floor((now - 60_000 * 10) / 1000)
 
     const outsideExecution = {
       caller: caller || defaultCaller,
