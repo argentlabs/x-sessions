@@ -157,13 +157,16 @@ describe("ArgentBackendSessionService", () => {
           sessionTokenToSign,
           accountAddress,
           outsideExecution,
-          accountSessionSignature,
+          [123n, 456n],
           false,
           chainId,
         )
 
-      // Assert the response here
-      console.log(response)
+      expect(response).toStrictEqual({
+        publicKey: "0x123",
+        r: "10000000000",
+        s: "10000000000",
+      })
     })
   })
 })

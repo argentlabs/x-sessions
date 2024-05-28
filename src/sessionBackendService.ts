@@ -1,12 +1,10 @@
 import {
-  ArraySignatureType,
   Call,
   InvocationsSignerDetails,
   RPC,
   Signature,
   V2InvocationsSignerDetails,
   V3InvocationsSignerDetails,
-  hash,
   num,
   stark,
   transaction,
@@ -145,31 +143,22 @@ export class ArgentBackendSessionService {
     sessionTokenToSign: OffChainSession,
     accountAddress: string,
     outsideExecution: OutsideExecution,
-    sessionSignature: ArraySignatureType,
+    sessionSignature: bigint[],
     cacheAuthorisation: boolean,
     chainId: StarknetChainId,
   ): Promise<BackendSignatureResponse> {
-    const currentTypedData = getTypedData(outsideExecution, chainId)
-    const messageHash = typedData.getMessageHash(
-      currentTypedData,
-      accountAddress,
-    )
-
     const sessionMessageHash = typedData.getMessageHash(
       getSessionTypedData(sessionTokenToSign, chainId),
       accountAddress,
     )
-    const sessionWithTxHash = hash.computePoseidonHash(
-      messageHash,
-      sessionMessageHash,
-    )
+    const currentTypedData = getTypedData(outsideExecution, chainId)
 
     const sessionAuthorisation = stark.formatSignature(
       this.accountSessionSignature,
     )
 
     const session: BackendSessionBody = {
-      sessionHash: sessionWithTxHash,
+      sessionHash: sessionMessageHash,
       sessionAuthorisation,
       cacheAuthorisation,
       sessionSignature: {

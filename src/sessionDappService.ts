@@ -13,6 +13,7 @@ import {
   V3InvocationsSignerDetails,
   byteArray,
   ec,
+  encode,
   hash,
   merkle,
   selector,
@@ -312,20 +313,25 @@ export class SessionDappService {
     accountAddress: string,
     chainId: StarknetChainId,
     caller?: string,
-    execute_after = 1, // todo
-    execute_before = 999999999999999, // todo
+    execute_after?: BigNumberish,
+    execute_before?: BigNumberish,
     nonce?: BigNumberish,
   ): Promise<Call> {
-    const randomNonce = u.hexToNumber(
+    const defaultCaller = shortString.encodeShortString("ANY_CALLER")
+
+    const randomNonce = encode.addHexPrefix(
       u.bytesToHex(ec.starkCurve.utils.randomPrivateKey()),
     )
+
+    const now = Date.now()
+    const defaultExecuteBefore = Math.floor((now + 60_000 * 20) / 1000)
+    const defaultExecuteAfter = Math.floor((now - 60_000 * 20) / 1000)
+
     const outsideExecution = {
-      caller: caller || shortString.encodeShortString("ANY_CALLER"),
-      nonce: nonce ?? randomNonce,
-      execute_after:
-        execute_after ?? new Date(Date.now() + 1000 * 60 * 20).getTime(),
-      execute_before:
-        execute_before ?? new Date(Date.now() - 1000 * 60 * 5).getTime(),
+      caller: caller || defaultCaller,
+      nonce: nonce || randomNonce,
+      execute_after: execute_after || defaultExecuteAfter,
+      execute_before: execute_before || defaultExecuteBefore,
       calls: calls.map((call) => getOutsideCall(call)),
     }
 
@@ -335,6 +341,7 @@ export class SessionDappService {
       currentTypedData,
       accountAddress,
     )
+
     const signature = await this.compileSessionSignatureFromOutside(
       sessionAuthorizationSignature,
       sessionRequest,
@@ -363,21 +370,21 @@ export class SessionDappService {
   ): Promise<ArraySignatureType> {
     const session = this.compileSessionHelper(sessionRequest)
 
-    const guardianSignature = await this.argentBackend.signOutsideTxAndSession(
-      sessionRequest,
-      accountAddress,
-      outsideExecution,
-      sessionAuthorizationSignature,
-      cacheAuthorisation,
-      this.chainId,
-    )
-
     const sessionTypedData = getSessionTypedData(sessionRequest, this.chainId)
     const sessionSignature = await this.signTxAndSession(
       transactionHash,
       accountAddress,
       sessionTypedData,
       cacheAuthorisation,
+    )
+
+    const guardianSignature = await this.argentBackend.signOutsideTxAndSession(
+      sessionRequest,
+      accountAddress,
+      outsideExecution,
+      sessionSignature,
+      cacheAuthorisation,
+      this.chainId,
     )
 
     const sessionToken = await this.compileSessionTokenHelper(
