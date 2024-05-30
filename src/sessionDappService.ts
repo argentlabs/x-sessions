@@ -26,6 +26,7 @@ import { StarknetChainId } from "starknet-types"
 import * as u from "@noble/curves/abstract/utils"
 import {
   OutsideExecution,
+  OutsideExecutionTypedData,
   getOutsideCall,
   getTypedData,
 } from "./outsideExecution"
@@ -305,6 +306,72 @@ export class SessionDappService {
     })
   }
 
+  public async getOutsideExecutionTypedData(
+    sessionRequest: OffChainSession,
+    sessionAuthorizationSignature: ArraySignatureType,
+    cacheAuthorisation: boolean,
+    accountAddress: string,
+    currentTypedData: OutsideExecutionTypedData,
+    calls: Call[],
+  ) {
+    const { message } = currentTypedData
+
+    const outsideExecution = this.buildOutsideExecution(
+      calls,
+      message["Caller"],
+      message["Execute After"],
+      message["Execute Before"],
+      message["Nonce"],
+    )
+
+    const messageHash = typedData.getMessageHash(
+      currentTypedData,
+      accountAddress,
+    )
+
+    const signature = await this.compileSessionTxSignatureFromOutside(
+      sessionAuthorizationSignature,
+      sessionRequest,
+      messageHash,
+      calls,
+      accountAddress,
+      currentTypedData,
+      cacheAuthorisation,
+    )
+
+    return {
+      contractAddress: accountAddress,
+      entrypoint: "execute_from_outside_v2",
+      calldata: CallData.compile({ ...outsideExecution, signature }),
+    }
+  }
+
+  public buildOutsideExecution(
+    calls: Call[],
+    caller?: string,
+    execute_after?: BigNumberish,
+    execute_before?: BigNumberish,
+    nonce?: BigNumberish,
+  ): OutsideExecution {
+    const defaultCaller = shortString.encodeShortString("ANY_CALLER")
+
+    const randomNonce = encode.addHexPrefix(
+      u.bytesToHex(ec.starkCurve.utils.randomPrivateKey()),
+    )
+
+    const now = Date.now()
+    const defaultExecuteBefore = Math.floor((now + 60_000 * 20) / 1000)
+    const defaultExecuteAfter = Math.floor((now - 60_000 * 10) / 1000)
+
+    return {
+      caller: caller || defaultCaller,
+      nonce: nonce || randomNonce,
+      execute_after: execute_after || defaultExecuteAfter,
+      execute_before: execute_before || defaultExecuteBefore,
+      calls: calls.map((call) => getOutsideCall(call)),
+    }
+  }
+
   public async getOutsideExecutionCall(
     sessionRequest: OffChainSession,
     sessionAuthorizationSignature: ArraySignatureType,
@@ -317,38 +384,28 @@ export class SessionDappService {
     execute_before?: BigNumberish,
     nonce?: BigNumberish,
   ): Promise<Call> {
-    const defaultCaller = shortString.encodeShortString("ANY_CALLER")
-
-    const randomNonce = encode.addHexPrefix(
-      u.bytesToHex(ec.starkCurve.utils.randomPrivateKey()),
+    const outsideExecution = this.buildOutsideExecution(
+      calls,
+      caller,
+      execute_after,
+      execute_before,
+      nonce,
     )
 
-    const now = Date.now()
-    const defaultExecuteBefore = Math.floor((now + 60_000 * 20) / 1000)
-    const defaultExecuteAfter = Math.floor((now - 60_000 * 10) / 1000)
-
-    const outsideExecution = {
-      caller: caller || defaultCaller,
-      nonce: nonce || randomNonce,
-      execute_after: execute_after || defaultExecuteAfter,
-      execute_before: execute_before || defaultExecuteBefore,
-      calls: calls.map((call) => getOutsideCall(call)),
-    }
-
-    const currentTypedData = getTypedData(outsideExecution, chainId)
+    const outsideExecutionTypedData = getTypedData(outsideExecution, chainId)
 
     const messageHash = typedData.getMessageHash(
-      currentTypedData,
+      outsideExecutionTypedData,
       accountAddress,
     )
 
-    const signature = await this.compileSessionSignatureFromOutside(
+    const signature = await this.compileSessionTxSignatureFromOutside(
       sessionAuthorizationSignature,
       sessionRequest,
       messageHash,
       calls,
       accountAddress,
-      outsideExecution,
+      outsideExecutionTypedData,
       cacheAuthorisation,
     )
 
@@ -359,29 +416,28 @@ export class SessionDappService {
     }
   }
 
-  private async compileSessionSignatureFromOutside(
+  private async compileSessionTxSignatureFromOutside(
     sessionAuthorizationSignature: ArraySignatureType,
     sessionRequest: OffChainSession,
-    transactionHash: string,
+    messageHash: string,
     calls: Call[],
     accountAddress: string,
-    outsideExecution: OutsideExecution,
+    outsideExecutionTypedData: TypedData,
     cacheAuthorisation: boolean,
   ): Promise<ArraySignatureType> {
     const session = this.compileSessionHelper(sessionRequest)
-
     const sessionTypedData = getSessionTypedData(sessionRequest, this.chainId)
     const sessionSignature = await this.signTxAndSession(
-      transactionHash,
+      messageHash,
       accountAddress,
       sessionTypedData,
       cacheAuthorisation,
     )
 
-    const guardianSignature = await this.argentBackend.signOutsideTxAndSession(
+    const guardianSignature = await this.argentBackend.signSessionEFO(
       sessionRequest,
       accountAddress,
-      outsideExecution,
+      outsideExecutionTypedData,
       sessionSignature,
       cacheAuthorisation,
       this.chainId,

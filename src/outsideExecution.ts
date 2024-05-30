@@ -100,6 +100,8 @@ export function getTypedData(
   }
 }
 
+export type OutsideExecutionTypedData = ReturnType<typeof getTypedData>
+
 export async function getOutsideExecutionCall(
   outsideExecution: OutsideExecution,
   accountAddress: string,

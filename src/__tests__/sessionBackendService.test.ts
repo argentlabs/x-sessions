@@ -1,9 +1,9 @@
-import { OutsideExecution } from "@/outsideExecution"
 import { HttpResponse, http } from "msw"
 import { setupServer } from "msw/node"
 import { constants, stark } from "starknet"
 import { StarknetChainId } from "starknet-types"
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest"
+import { OutsideExecution, getTypedData } from "../outsideExecution"
 import { ArgentBackendSessionService } from "../sessionBackendService"
 import { BackendSignatureResponse } from "../sessionTypes"
 import { getSessionTypedData } from "../utils"
@@ -152,15 +152,14 @@ describe("ArgentBackendSessionService", () => {
 
       const chainId: StarknetChainId = constants.StarknetChainId.SN_SEPOLIA
 
-      const response: BackendSignatureResponse =
-        await service.signOutsideTxAndSession(
-          sessionTokenToSign,
-          accountAddress,
-          outsideExecution,
-          [123n, 456n],
-          false,
-          chainId,
-        )
+      const response: BackendSignatureResponse = await service.signSessionEFO(
+        sessionTokenToSign,
+        accountAddress,
+        getTypedData(outsideExecution, chainId),
+        [123n, 456n],
+        false,
+        chainId,
+      )
 
       expect(response).toStrictEqual({
         publicKey: "0x123",

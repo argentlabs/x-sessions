@@ -14,7 +14,6 @@ import {
 import { StarknetChainId, TypedData } from "starknet-types"
 import { ARGENT_BACKEND_BASE_URL } from "./constants"
 import { SignSessionError } from "./errors"
-import { OutsideExecution, getTypedData } from "./outsideExecution"
 import {
   BackendSessionBody,
   BackendSignSessionBody,
@@ -139,44 +138,7 @@ export class ArgentBackendSessionService {
     return json.signature
   }
 
-  public signTypedDataAndSession(
-    sessionTokenToSign: OffChainSession,
-    accountAddress: string,
-    currentTypedData: TypedData,
-    sessionSignature: bigint[],
-    cacheAuthorisation: boolean,
-    chainId: StarknetChainId,
-  ): Promise<BackendSignatureResponse> {
-    return this.callSignSessionEFO(
-      sessionTokenToSign,
-      accountAddress,
-      currentTypedData,
-      sessionSignature,
-      cacheAuthorisation,
-      chainId,
-    )
-  }
-
-  public async signOutsideTxAndSession(
-    sessionTokenToSign: OffChainSession,
-    accountAddress: string,
-    outsideExecution: OutsideExecution,
-    sessionSignature: bigint[],
-    cacheAuthorisation: boolean,
-    chainId: StarknetChainId,
-  ): Promise<BackendSignatureResponse> {
-    const currentTypedData = getTypedData(outsideExecution, chainId)
-    return this.callSignSessionEFO(
-      sessionTokenToSign,
-      accountAddress,
-      currentTypedData,
-      sessionSignature,
-      cacheAuthorisation,
-      chainId,
-    )
-  }
-
-  private async callSignSessionEFO(
+  public async signSessionEFO(
     sessionTokenToSign: OffChainSession,
     accountAddress: string,
     currentTypedData: TypedData,

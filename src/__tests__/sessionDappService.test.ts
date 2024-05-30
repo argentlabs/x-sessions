@@ -10,6 +10,7 @@ import { StarknetChainId } from "starknet-types"
 import { beforeAll, describe, expect, it, vi } from "vitest"
 import { ArgentBackendSessionService } from "../sessionBackendService"
 import { SessionDappService } from "../sessionDappService"
+import { executionFromOusideTypedData } from "./fixture"
 
 const allowedMethodContractAddress = stark.randomAddress()
 
@@ -107,7 +108,7 @@ describe("SessionDappService", () => {
     })
   })
 
-  it("should get an outside execution call with execute_from_outside_v2", async () => {
+  it("should get an outside execution call with getOutsideExecutionTypedData", async () => {
     const provider = new RpcProvider()
     vi.spyOn(provider, "getChainId").mockImplementation(
       async () => StarknetChainId.SN_SEPOLIA,
@@ -124,13 +125,11 @@ describe("SessionDappService", () => {
       },
     ]
 
-    vi.spyOn(argentBackend, "signOutsideTxAndSession").mockImplementation(
-      async () => ({
-        publicKey: "0x123",
-        r: 10n,
-        s: 10n,
-      }),
-    )
+    vi.spyOn(argentBackend, "signSessionEFO").mockImplementation(async () => ({
+      publicKey: "0x123",
+      r: 10n,
+      s: 10n,
+    }))
 
     const outsideExecutionCall =
       await sessionDappService.getOutsideExecutionCall(
@@ -143,6 +142,42 @@ describe("SessionDappService", () => {
         caller,
         execute_after,
         execute_before,
+      )
+
+    expect(outsideExecutionCall.entrypoint).toEqual("execute_from_outside_v2")
+    expect(outsideExecutionCall.contractAddress).toEqual(address)
+    expect(outsideExecutionCall.calldata).toBeInstanceOf(Array)
+    expect(outsideExecutionCall.calldata).not.toBe([])
+  })
+
+  it("should get an outside execution call with getOutsideExecutionCall", async () => {
+    const provider = new RpcProvider()
+    vi.spyOn(provider, "getChainId").mockImplementation(
+      async () => StarknetChainId.SN_SEPOLIA,
+    )
+    const address = stark.randomAddress()
+    const calls: Call[] = [
+      {
+        contractAddress: allowedMethodContractAddress,
+        entrypoint: "some_method",
+        calldata: ["0x123"],
+      },
+    ]
+
+    vi.spyOn(argentBackend, "signSessionEFO").mockImplementation(async () => ({
+      publicKey: "0x123",
+      r: 10n,
+      s: 10n,
+    }))
+
+    const outsideExecutionCall =
+      await sessionDappService.getOutsideExecutionTypedData(
+        sessionRequest,
+        sessionAuthorizationSignature,
+        cacheAuthorisation,
+        address,
+        executionFromOusideTypedData,
+        calls,
       )
 
     expect(outsideExecutionCall.entrypoint).toEqual("execute_from_outside_v2")
