@@ -139,6 +139,24 @@ export class ArgentBackendSessionService {
     return json.signature
   }
 
+  public signTypedDataAndSession(
+    sessionTokenToSign: OffChainSession,
+    accountAddress: string,
+    currentTypedData: TypedData,
+    sessionSignature: bigint[],
+    cacheAuthorisation: boolean,
+    chainId: StarknetChainId,
+  ): Promise<BackendSignatureResponse> {
+    return this.callSignSessionEFO(
+      sessionTokenToSign,
+      accountAddress,
+      currentTypedData,
+      sessionSignature,
+      cacheAuthorisation,
+      chainId,
+    )
+  }
+
   public async signOutsideTxAndSession(
     sessionTokenToSign: OffChainSession,
     accountAddress: string,
@@ -147,11 +165,29 @@ export class ArgentBackendSessionService {
     cacheAuthorisation: boolean,
     chainId: StarknetChainId,
   ): Promise<BackendSignatureResponse> {
+    const currentTypedData = getTypedData(outsideExecution, chainId)
+    return this.callSignSessionEFO(
+      sessionTokenToSign,
+      accountAddress,
+      currentTypedData,
+      sessionSignature,
+      cacheAuthorisation,
+      chainId,
+    )
+  }
+
+  private async callSignSessionEFO(
+    sessionTokenToSign: OffChainSession,
+    accountAddress: string,
+    currentTypedData: TypedData,
+    sessionSignature: bigint[],
+    cacheAuthorisation: boolean,
+    chainId: StarknetChainId,
+  ): Promise<BackendSignatureResponse> {
     const sessionMessageHash = typedData.getMessageHash(
       getSessionTypedData(sessionTokenToSign, chainId),
       accountAddress,
     )
-    const currentTypedData = getTypedData(outsideExecution, chainId)
 
     const sessionAuthorisation = stark.formatSignature(
       this.accountSessionSignature,
