@@ -306,46 +306,6 @@ export class SessionDappService {
     })
   }
 
-  public async getOutsideExecutionTypedData(
-    sessionRequest: OffChainSession,
-    sessionAuthorizationSignature: ArraySignatureType,
-    cacheAuthorisation: boolean,
-    accountAddress: string,
-    currentTypedData: OutsideExecutionTypedData,
-    calls: Call[],
-  ) {
-    const { message } = currentTypedData
-
-    const outsideExecution = this.buildOutsideExecution(
-      calls,
-      message["Caller"],
-      message["Execute After"],
-      message["Execute Before"],
-      message["Nonce"],
-    )
-
-    const messageHash = typedData.getMessageHash(
-      currentTypedData,
-      accountAddress,
-    )
-
-    const signature = await this.compileSessionTxSignatureFromOutside(
-      sessionAuthorizationSignature,
-      sessionRequest,
-      messageHash,
-      calls,
-      accountAddress,
-      currentTypedData,
-      cacheAuthorisation,
-    )
-
-    return {
-      contractAddress: accountAddress,
-      entrypoint: "execute_from_outside_v2",
-      calldata: CallData.compile({ ...outsideExecution, signature }),
-    }
-  }
-
   public buildOutsideExecution(
     calls: Call[],
     caller?: string,
@@ -454,5 +414,45 @@ export class SessionDappService {
     )
 
     return [SESSION_MAGIC, ...CallData.compile(sessionToken)]
+  }
+
+  public async getOutsideExecutionTypedData(
+    sessionRequest: OffChainSession,
+    sessionAuthorizationSignature: ArraySignatureType,
+    cacheAuthorisation: boolean,
+    accountAddress: string,
+    currentTypedData: OutsideExecutionTypedData,
+    calls: Call[],
+  ) {
+    const { message } = currentTypedData
+
+    const outsideExecution = this.buildOutsideExecution(
+      calls,
+      message["Caller"],
+      message["Execute After"],
+      message["Execute Before"],
+      message["Nonce"],
+    )
+
+    const messageHash = typedData.getMessageHash(
+      currentTypedData,
+      accountAddress,
+    )
+
+    const signature = await this.compileSessionTxSignatureFromOutside(
+      sessionAuthorizationSignature,
+      sessionRequest,
+      messageHash,
+      calls,
+      accountAddress,
+      currentTypedData,
+      cacheAuthorisation,
+    )
+
+    return {
+      contractAddress: accountAddress,
+      entrypoint: "execute_from_outside_v2",
+      calldata: CallData.compile({ ...outsideExecution, signature }),
+    }
   }
 }
