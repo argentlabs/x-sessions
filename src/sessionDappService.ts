@@ -143,7 +143,7 @@ export class SessionDappService {
     } else {
       throw Error("unsupported signTransaction version")
     }
-    return this.compileSessionSignature(
+    return this.getSessionSignatureForTransaction(
       sessionAuthorizationSignature,
       sessionRequest,
       txHash,
@@ -154,7 +154,7 @@ export class SessionDappService {
     )
   }
 
-  private async compileSessionSignature(
+  public async getSessionSignatureForTransaction(
     sessionAuthorizationSignature: ArraySignatureType,
     sessionRequest: OffChainSession,
     transactionHash: string,
@@ -376,20 +376,16 @@ export class SessionDappService {
       this.chainId,
     )
 
-    const messageHash = typedData.getMessageHash(
-      outsideExecutionTypedData,
-      accountAddress,
-    )
-
-    const signature = await this.compileSessionSignatureFromOutside(
-      sessionAuthorizationSignature,
-      sessionRequest,
-      messageHash,
-      calls,
-      accountAddress,
-      outsideExecutionTypedData,
-      cacheAuthorisation,
-    )
+    const signature =
+      await this.getSessionSignatureForOutsideExecutionTypedData(
+        sessionAuthorizationSignature,
+        sessionRequest,
+        messageHash,
+        calls,
+        accountAddress,
+        outsideExecutionTypedData,
+        cacheAuthorisation,
+      )
 
     return {
       contractAddress: accountAddress,
@@ -398,10 +394,9 @@ export class SessionDappService {
     }
   }
 
-  private async compileSessionSignatureFromOutside(
+  public async getSessionSignatureForOutsideExecutionTypedData(
     sessionAuthorizationSignature: ArraySignatureType,
     sessionRequest: OffChainSession,
-    messageHash: string,
     calls: Call[],
     accountAddress: string,
     outsideExecutionTypedData: TypedData,
@@ -409,6 +404,12 @@ export class SessionDappService {
   ): Promise<ArraySignatureType> {
     const session = this.compileSessionHelper(sessionRequest)
     const sessionTypedData = getSessionTypedData(sessionRequest, this.chainId)
+
+    const messageHash = typedData.getMessageHash(
+      outsideExecutionTypedData,
+      accountAddress,
+    )
+
     const sessionSignature = await this.signTxAndSession(
       messageHash,
       accountAddress,
@@ -458,20 +459,16 @@ export class SessionDappService {
       nonce,
     )
 
-    const messageHash = typedData.getMessageHash(
-      currentTypedData,
-      accountAddress,
-    )
-
-    const signature = await this.compileSessionSignatureFromOutside(
-      sessionAuthorizationSignature,
-      sessionRequest,
-      messageHash,
-      calls,
-      accountAddress,
-      currentTypedData,
-      cacheAuthorisation,
-    )
+    const signature =
+      await this.getSessionSignatureForOutsideExecutionTypedData(
+        sessionAuthorizationSignature,
+        sessionRequest,
+        messageHash,
+        calls,
+        accountAddress,
+        currentTypedData,
+        cacheAuthorisation,
+      )
 
     return {
       outsideExecutionTypedData: currentTypedData,
