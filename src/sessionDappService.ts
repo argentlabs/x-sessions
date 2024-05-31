@@ -381,7 +381,7 @@ export class SessionDappService {
       accountAddress,
     )
 
-    const signature = await this.compileSessionTxSignatureFromOutside(
+    const signature = await this.compileSessionSignatureFromOutside(
       sessionAuthorizationSignature,
       sessionRequest,
       messageHash,
@@ -398,7 +398,7 @@ export class SessionDappService {
     }
   }
 
-  private async compileSessionTxSignatureFromOutside(
+  private async compileSessionSignatureFromOutside(
     sessionAuthorizationSignature: ArraySignatureType,
     sessionRequest: OffChainSession,
     messageHash: string,
@@ -463,7 +463,7 @@ export class SessionDappService {
       accountAddress,
     )
 
-    const signature = await this.compileSessionTxSignatureFromOutside(
+    const signature = await this.compileSessionSignatureFromOutside(
       sessionAuthorizationSignature,
       sessionRequest,
       messageHash,
