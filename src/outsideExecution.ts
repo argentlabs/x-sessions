@@ -1,4 +1,5 @@
 import {
+  ArraySignatureType,
   Call,
   CallData,
   RawArgs,
@@ -9,7 +10,7 @@ import {
   type Provider,
   type ProviderInterface,
 } from "starknet"
-import { StarknetChainId } from "starknet-types"
+import { StarknetChainId, TypedData } from "starknet-types"
 
 export const typesRev1 = {
   StarknetDomain: [
@@ -71,12 +72,12 @@ export function getTypedDataHash(
   chainId: string,
 ): string {
   return typedData.getMessageHash(
-    getTypedData(outsideExecution, chainId),
+    getOutsideExecutionTypedData(outsideExecution, chainId),
     accountAddress,
   )
 }
 
-export function getTypedData(
+export function getOutsideExecutionTypedData(
   outsideExecution: OutsideExecution,
   chainId: string,
 ) {
@@ -100,8 +101,6 @@ export function getTypedData(
   }
 }
 
-export type OutsideExecutionTypedData = ReturnType<typeof getTypedData>
-
 export async function getOutsideExecutionCall(
   outsideExecution: OutsideExecution,
   accountAddress: string,
@@ -110,11 +109,23 @@ export async function getOutsideExecutionCall(
   chainId?: StarknetChainId,
 ): Promise<Call> {
   chainId = chainId ?? (await provider.getChainId())
-  const currentTypedData = getTypedData(outsideExecution, chainId)
+  const currentTypedData = getOutsideExecutionTypedData(
+    outsideExecution,
+    chainId,
+  )
   const signature = await signer.signMessage(currentTypedData, accountAddress)
   return {
     contractAddress: accountAddress,
     entrypoint: "execute_from_outside_v2",
     calldata: CallData.compile({ ...outsideExecution, signature }),
   }
+}
+
+export type OutsideExecutionTypedData = ReturnType<
+  typeof getOutsideExecutionTypedData
+>
+
+export type OutsideExecutionTypedDataResponse = {
+  signature: ArraySignatureType
+  outsideExecutionTypedData: TypedData
 }

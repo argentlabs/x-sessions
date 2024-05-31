@@ -1,3 +1,4 @@
+import * as u from "@noble/curves/abstract/utils"
 import {
   Account,
   ArraySignatureType,
@@ -23,12 +24,12 @@ import {
   typedData,
 } from "starknet"
 import { StarknetChainId } from "starknet-types"
-import * as u from "@noble/curves/abstract/utils"
 import {
   OutsideExecution,
   OutsideExecutionTypedData,
+  OutsideExecutionTypedDataResponse,
   getOutsideCall,
-  getTypedData,
+  getOutsideExecutionTypedData,
 } from "./outsideExecution"
 import { ArgentBackendSessionService } from "./sessionBackendService"
 import {
@@ -332,13 +333,31 @@ export class SessionDappService {
     }
   }
 
+  public buildOutsideExecutionTypedData(
+    chainId: StarknetChainId,
+    calls: Call[],
+    caller?: string,
+    execute_after?: BigNumberish,
+    execute_before?: BigNumberish,
+    nonce?: BigNumberish,
+  ): OutsideExecutionTypedData {
+    const outsideExecution = this.buildOutsideExecution(
+      calls,
+      caller,
+      execute_after,
+      execute_before,
+      nonce,
+    )
+
+    return getOutsideExecutionTypedData(outsideExecution, chainId)
+  }
+
   public async getOutsideExecutionCall(
     sessionRequest: OffChainSession,
     sessionAuthorizationSignature: ArraySignatureType,
     cacheAuthorisation: boolean,
     calls: Call[],
     accountAddress: string,
-    chainId: StarknetChainId,
     caller?: string,
     execute_after?: BigNumberish,
     execute_before?: BigNumberish,
@@ -352,7 +371,10 @@ export class SessionDappService {
       nonce,
     )
 
-    const outsideExecutionTypedData = getTypedData(outsideExecution, chainId)
+    const outsideExecutionTypedData = getOutsideExecutionTypedData(
+      outsideExecution,
+      this.chainId,
+    )
 
     const messageHash = typedData.getMessageHash(
       outsideExecutionTypedData,
@@ -420,18 +442,20 @@ export class SessionDappService {
     sessionRequest: OffChainSession,
     sessionAuthorizationSignature: ArraySignatureType,
     cacheAuthorisation: boolean,
-    accountAddress: string,
-    currentTypedData: OutsideExecutionTypedData,
     calls: Call[],
-  ) {
-    const { message } = currentTypedData
-
-    const outsideExecution = this.buildOutsideExecution(
+    accountAddress: string,
+    caller?: string,
+    execute_after?: BigNumberish,
+    execute_before?: BigNumberish,
+    nonce?: BigNumberish,
+  ): Promise<OutsideExecutionTypedDataResponse> {
+    const currentTypedData = this.buildOutsideExecutionTypedData(
+      this.chainId,
       calls,
-      message["Caller"],
-      message["Execute After"],
-      message["Execute Before"],
-      message["Nonce"],
+      caller,
+      execute_after,
+      execute_before,
+      nonce,
     )
 
     const messageHash = typedData.getMessageHash(
@@ -450,9 +474,8 @@ export class SessionDappService {
     )
 
     return {
-      contractAddress: accountAddress,
-      entrypoint: "execute_from_outside_v2",
-      calldata: CallData.compile({ ...outsideExecution, signature }),
+      outsideExecutionTypedData: currentTypedData,
+      signature,
     }
   }
 }

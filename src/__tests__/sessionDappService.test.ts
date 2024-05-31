@@ -108,7 +108,7 @@ describe("SessionDappService", () => {
     })
   })
 
-  it("should get an outside execution call with getOutsideExecutionTypedData", async () => {
+  it("should get an outside execution call with getOutsideExecutionCall", async () => {
     const provider = new RpcProvider()
     vi.spyOn(provider, "getChainId").mockImplementation(
       async () => StarknetChainId.SN_SEPOLIA,
@@ -150,12 +150,15 @@ describe("SessionDappService", () => {
     expect(outsideExecutionCall.calldata).not.toBe([])
   })
 
-  it("should get an outside execution call with getOutsideExecutionCall", async () => {
+  it("should get an outside execution call with getOutsideExecutionTypedData", async () => {
     const provider = new RpcProvider()
     vi.spyOn(provider, "getChainId").mockImplementation(
       async () => StarknetChainId.SN_SEPOLIA,
     )
     const address = stark.randomAddress()
+    const execute_after = 1
+    const execute_before = 999999999999999
+    const nonce = "0x1"
     const calls: Call[] = [
       {
         contractAddress: allowedMethodContractAddress,
@@ -170,19 +173,22 @@ describe("SessionDappService", () => {
       s: 10n,
     }))
 
-    const outsideExecutionCall =
+    const { signature, outsideExecutionTypedData } =
       await sessionDappService.getOutsideExecutionTypedData(
         sessionRequest,
         sessionAuthorizationSignature,
-        cacheAuthorisation,
-        address,
-        executionFromOusideTypedData,
+        false,
         calls,
+        address,
+        "",
+        execute_after,
+        execute_before,
+        nonce,
       )
 
-    expect(outsideExecutionCall.entrypoint).toEqual("execute_from_outside_v2")
-    expect(outsideExecutionCall.contractAddress).toEqual(address)
-    expect(outsideExecutionCall.calldata).toBeInstanceOf(Array)
-    expect(outsideExecutionCall.calldata).not.toBe([])
+    expect(signature).toBeInstanceOf(Array)
+    expect(outsideExecutionTypedData).toStrictEqual(
+      executionFromOusideTypedData(allowedMethodContractAddress),
+    )
   })
 })

@@ -3,7 +3,10 @@ import { setupServer } from "msw/node"
 import { constants, stark } from "starknet"
 import { StarknetChainId } from "starknet-types"
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest"
-import { OutsideExecution, getTypedData } from "../outsideExecution"
+import {
+  OutsideExecution,
+  getOutsideExecutionTypedData,
+} from "../outsideExecution"
 import { ArgentBackendSessionService } from "../sessionBackendService"
 import { BackendSignatureResponse } from "../sessionTypes"
 import { getSessionTypedData } from "../utils"
@@ -155,7 +158,7 @@ describe("ArgentBackendSessionService", () => {
       const response: BackendSignatureResponse = await service.signSessionEFO(
         sessionTokenToSign,
         accountAddress,
-        getTypedData(outsideExecution, chainId),
+        getOutsideExecutionTypedData(outsideExecution, chainId),
         [123n, 456n],
         false,
         chainId,
