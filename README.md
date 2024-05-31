@@ -137,8 +137,8 @@ Executing transactions “from outside” allows an account to submit transactio
 This package expose a method in order to get the Call required to perform an execution from outside.
 
 ```typescript
-// instantiate argent backend session service
-const beService = new ArgentBackendSessionService(
+// instantiate argent session service
+const beService = new ArgentSessionService(
   dappKey.publicKey,
   accountSessionSignature
 )

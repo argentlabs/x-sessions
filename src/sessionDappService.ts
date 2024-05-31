@@ -31,9 +31,9 @@ import {
   getOutsideCall,
   getOutsideExecutionTypedData,
 } from "./outsideExecution"
-import { ArgentBackendSessionService } from "./sessionBackendService"
+import { ArgentSessionService } from "./argentSessionService"
 import {
-  BackendSignatureResponse,
+  ArgentServiceSignatureResponse,
   DappKey,
   OffChainSession,
   OnChainSession,
@@ -68,7 +68,7 @@ class SessionSigner extends Signer {
 
 export class SessionDappService {
   constructor(
-    private argentBackend: ArgentBackendSessionService,
+    private argentSessionService: ArgentSessionService,
     public chainId: StarknetChainId,
     private dappKey: DappKey,
   ) {}
@@ -173,7 +173,7 @@ export class SessionDappService {
       cacheAuthorisation,
     )
 
-    const guardianSignature = await this.argentBackend.signTxAndSession(
+    const guardianSignature = await this.argentSessionService.signTxAndSession(
       calls,
       invocationSignerDetails,
       sessionTypedData,
@@ -279,7 +279,7 @@ export class SessionDappService {
     calls: Call[],
     sessionSignature: bigint[],
     session_authorization: string[],
-    guardianSignature: BackendSignatureResponse,
+    guardianSignature: ArgentServiceSignatureResponse,
     cache_authorization: boolean,
   ) {
     return {
@@ -380,7 +380,6 @@ export class SessionDappService {
       await this.getSessionSignatureForOutsideExecutionTypedData(
         sessionAuthorizationSignature,
         sessionRequest,
-        messageHash,
         calls,
         accountAddress,
         outsideExecutionTypedData,
@@ -417,7 +416,7 @@ export class SessionDappService {
       cacheAuthorisation,
     )
 
-    const guardianSignature = await this.argentBackend.signSessionEFO(
+    const guardianSignature = await this.argentSessionService.signSessionEFO(
       sessionRequest,
       accountAddress,
       outsideExecutionTypedData,
@@ -463,7 +462,6 @@ export class SessionDappService {
       await this.getSessionSignatureForOutsideExecutionTypedData(
         sessionAuthorizationSignature,
         sessionRequest,
-        messageHash,
         calls,
         accountAddress,
         currentTypedData,

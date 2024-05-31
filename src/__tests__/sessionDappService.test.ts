@@ -8,7 +8,7 @@ import {
 } from "starknet"
 import { StarknetChainId } from "starknet-types"
 import { beforeAll, describe, expect, it, vi } from "vitest"
-import { ArgentBackendSessionService } from "../sessionBackendService"
+import { ArgentSessionService } from "../argentSessionService"
 import { SessionDappService } from "../sessionDappService"
 import { outsideExecutionTypedDataFixture } from "./fixture"
 
@@ -35,7 +35,7 @@ const sessionRequest = {
 const sessionAuthorizationSignature = ["signature1", "signature2"]
 
 describe("SessionDappService", () => {
-  let argentBackend: ArgentBackendSessionService
+  let argentSessionService: ArgentSessionService
   let chainId: StarknetChainId
   let privateDappKey: Uint8Array
   let publicDappKey: string
@@ -45,12 +45,12 @@ describe("SessionDappService", () => {
     chainId = StarknetChainId.SN_GOERLI
     privateDappKey = ec.starkCurve.utils.randomPrivateKey()
     publicDappKey = ec.starkCurve.getStarkKey(privateDappKey)
-    argentBackend = new ArgentBackendSessionService(
+    argentSessionService = new ArgentSessionService(
       publicDappKey,
       sessionAuthorizationSignature,
     )
 
-    vi.spyOn(argentBackend, "signTxAndSession").mockImplementation(
+    vi.spyOn(argentSessionService, "signTxAndSession").mockImplementation(
       async () => ({
         publicKey: "0x123",
         r: 10n,
@@ -58,7 +58,7 @@ describe("SessionDappService", () => {
       }),
     )
 
-    sessionDappService = new SessionDappService(argentBackend, chainId, {
+    sessionDappService = new SessionDappService(argentSessionService, chainId, {
       privateKey: privateDappKey,
       publicKey: publicDappKey,
     })
@@ -79,7 +79,7 @@ describe("SessionDappService", () => {
     expect(account).toBeInstanceOf(Account)
   })
 
-  it("should signTransaction calling argent backend", async () => {
+  it("should signTransaction calling argent session service", async () => {
     const invokationDetails: V2InvocationsSignerDetails = {
       cairoVersion: "1",
       chainId,
@@ -100,8 +100,8 @@ describe("SessionDappService", () => {
     )
 
     expect(signatureResult).toBeInstanceOf(Array)
-    expect(argentBackend.signTxAndSession).toHaveBeenCalled()
-    expect(argentBackend.signTxAndSession).toReturnWith({
+    expect(argentSessionService.signTxAndSession).toHaveBeenCalled()
+    expect(argentSessionService.signTxAndSession).toReturnWith({
       publicKey: "0x123",
       r: 10n,
       s: 10n,
@@ -125,11 +125,13 @@ describe("SessionDappService", () => {
       },
     ]
 
-    vi.spyOn(argentBackend, "signSessionEFO").mockImplementation(async () => ({
-      publicKey: "0x123",
-      r: 10n,
-      s: 10n,
-    }))
+    vi.spyOn(argentSessionService, "signSessionEFO").mockImplementation(
+      async () => ({
+        publicKey: "0x123",
+        r: 10n,
+        s: 10n,
+      }),
+    )
 
     const outsideExecutionCall =
       await sessionDappService.getOutsideExecutionCall(
@@ -167,11 +169,13 @@ describe("SessionDappService", () => {
       },
     ]
 
-    vi.spyOn(argentBackend, "signSessionEFO").mockImplementation(async () => ({
-      publicKey: "0x123",
-      r: 10n,
-      s: 10n,
-    }))
+    vi.spyOn(argentSessionService, "signSessionEFO").mockImplementation(
+      async () => ({
+        publicKey: "0x123",
+        r: 10n,
+        s: 10n,
+      }),
+    )
 
     const { signature, outsideExecutionTypedData } =
       await sessionDappService.getOutsideExecutionTypedData(

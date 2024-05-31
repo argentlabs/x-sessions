@@ -7,8 +7,8 @@ import {
   OutsideExecution,
   getOutsideExecutionTypedData,
 } from "../outsideExecution"
-import { ArgentBackendSessionService } from "../sessionBackendService"
-import { BackendSignatureResponse } from "../sessionTypes"
+import { ArgentSessionService } from "../argentSessionService"
+import { ArgentServiceSignatureResponse } from "../sessionTypes"
 import { getSessionTypedData } from "../utils"
 
 export const restHandlers = [
@@ -34,10 +34,10 @@ export const restHandlers = [
 
 const server = setupServer(...restHandlers)
 
-describe("ArgentBackendSessionService", () => {
+describe("ArgentSessionService", () => {
   const pubkey = "0x1234567890abcdef"
   const accountSessionSignature = ["123", "456"]
-  const service = new ArgentBackendSessionService(
+  const service = new ArgentSessionService(
     pubkey,
     accountSessionSignature,
     "http://localhost:3000",
@@ -53,7 +53,7 @@ describe("ArgentBackendSessionService", () => {
   afterEach(() => server.resetHandlers())
 
   describe("signTxAndSession", () => {
-    it("should sign the transactions and session and return a backend signature response", async () => {
+    it("should sign the transactions and session and return a argent service signature response", async () => {
       const cacheAuthorisation = false
 
       const sessionRequest = {
@@ -79,20 +79,21 @@ describe("ArgentBackendSessionService", () => {
         StarknetChainId.SN_SEPOLIA,
       )
 
-      const response: BackendSignatureResponse = await service.signTxAndSession(
-        [],
-        {
-          cairoVersion: "1",
-          chainId: StarknetChainId.SN_SEPOLIA,
-          maxFee: 1000n,
-          nonce: 1,
-          version: "0x2",
-          walletAddress: stark.randomAddress(),
-        },
-        sessionTypedData,
-        [10n, 20n],
-        cacheAuthorisation,
-      )
+      const response: ArgentServiceSignatureResponse =
+        await service.signTxAndSession(
+          [],
+          {
+            cairoVersion: "1",
+            chainId: StarknetChainId.SN_SEPOLIA,
+            maxFee: 1000n,
+            nonce: 1,
+            version: "0x2",
+            walletAddress: stark.randomAddress(),
+          },
+          sessionTypedData,
+          [10n, 20n],
+          cacheAuthorisation,
+        )
 
       expect(response).toEqual({
         publicKey: "0x123",
@@ -105,7 +106,7 @@ describe("ArgentBackendSessionService", () => {
   })
 
   describe("signOutsideTxAndSession", () => {
-    it("should sign the outside session and return a backend signature response", async () => {
+    it("should sign the outside session and return an argent session signature response", async () => {
       const sessionTokenToSign = {
         expires_at: 1234567890,
         allowed_methods: [
@@ -155,14 +156,15 @@ describe("ArgentBackendSessionService", () => {
 
       const chainId: StarknetChainId = constants.StarknetChainId.SN_SEPOLIA
 
-      const response: BackendSignatureResponse = await service.signSessionEFO(
-        sessionTokenToSign,
-        accountAddress,
-        getOutsideExecutionTypedData(outsideExecution, chainId),
-        [123n, 456n],
-        false,
-        chainId,
-      )
+      const response: ArgentServiceSignatureResponse =
+        await service.signSessionEFO(
+          sessionTokenToSign,
+          accountAddress,
+          getOutsideExecutionTypedData(outsideExecution, chainId),
+          [123n, 456n],
+          false,
+          chainId,
+        )
 
       expect(response).toStrictEqual({
         publicKey: "0x123",
