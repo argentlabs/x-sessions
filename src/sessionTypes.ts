@@ -78,16 +78,16 @@ export type CreateSessionParams = {
   chainId: StarknetChainId
   sessionRequest: OffChainSession
   useCacheAuthorisation?: boolean
-  argentBackendBaseUrl?: string
+  argentSessionServiceBaseUrl?: string
 }
 
-export type BackendSignatureResponse = {
+export type ArgentServiceSignatureResponse = {
   publicKey: string // Public address of a guardian (cosigner)
   r: bigint
   s: bigint
 }
 
-export type BackendSessionBody = {
+export type ArgentServiceSessionBody = {
   sessionHash: string
   sessionAuthorisation: ArraySignatureType
   cacheAuthorisation?: boolean
@@ -101,7 +101,7 @@ export type BackendSessionBody = {
   }
 }
 
-export type BackendSessionTxV1Body = {
+export type ArgentServiceSessionTxV1Body = {
   contractAddress: string
   calldata: Calldata
   maxFee: string
@@ -110,7 +110,7 @@ export type BackendSessionTxV1Body = {
   chainId: string
 }
 
-export type BackendSessionTxV3Body = {
+export type ArgentServiceSessionTxV3Body = {
   sender_address: string
   calldata: Calldata
   nonce: string
@@ -133,7 +133,7 @@ export type BackendSessionTxV3Body = {
   fee_data_availability_mode: string
 }
 
-export type BackendSignSessionBody = {
-  session: BackendSessionBody
-  transaction?: BackendSessionTxV1Body | BackendSessionTxV3Body
+export type ArgentServiceSignSessionBody = {
+  session: ArgentServiceSessionBody
+  transaction?: ArgentServiceSessionTxV1Body | ArgentServiceSessionTxV3Body
 }

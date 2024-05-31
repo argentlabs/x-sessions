@@ -5,7 +5,7 @@ import {
   StarknetWindowObject,
   TypedData,
 } from "starknet-types"
-import { ArgentBackendSessionService } from "./sessionBackendService"
+import { ArgentSessionService } from "./argentSessionService"
 import { SessionDappService } from "./sessionDappService"
 import {
   AllowedMethod,
@@ -87,16 +87,16 @@ const buildSessionAccount = async ({
   chainId,
   address,
   dappKey,
-  argentBackendBaseUrl,
+  argentSessionServiceBaseUrl,
 }: CreateSessionParams): Promise<Account> => {
-  const argentBackendService = new ArgentBackendSessionService(
+  const argentSessionService = new ArgentSessionService(
     dappKey.publicKey,
     accountSessionSignature,
-    argentBackendBaseUrl,
+    argentSessionServiceBaseUrl,
   )
 
   const dappService = new SessionDappService(
-    argentBackendService,
+    argentSessionService,
     chainId,
     dappKey,
   )

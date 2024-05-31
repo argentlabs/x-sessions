@@ -12,21 +12,21 @@ import {
 } from "starknet"
 
 import { StarknetChainId, TypedData } from "starknet-types"
-import { ARGENT_BACKEND_BASE_URL } from "./constants"
+import { ARGENT_SESSION_SERVICE_BASE_URL } from "./constants"
 import { SignSessionError } from "./errors"
 import {
-  BackendSessionBody,
-  BackendSignSessionBody,
-  BackendSignatureResponse,
+  ArgentServiceSessionBody,
+  ArgentServiceSignSessionBody,
+  ArgentServiceSignatureResponse,
   OffChainSession,
 } from "./sessionTypes"
 import { getSessionTypedData } from "./utils"
 
-export class ArgentBackendSessionService {
+export class ArgentSessionService {
   constructor(
     public pubkey: string,
     private accountSessionSignature: Signature,
-    private argentBackendBaseUrl = ARGENT_BACKEND_BASE_URL,
+    private argentSessionServiceBaseUrl = ARGENT_SESSION_SERVICE_BASE_URL,
   ) {}
 
   public async signTxAndSession(
@@ -35,7 +35,7 @@ export class ArgentBackendSessionService {
     sessionTypedData: TypedData,
     sessionSignature: bigint[],
     cacheAuthorisation: boolean,
-  ): Promise<BackendSignatureResponse> {
+  ): Promise<ArgentServiceSignatureResponse> {
     const compiledCalldata = transaction.getExecuteCalldata(
       calls,
       transactionsDetail.cairoVersion,
@@ -50,7 +50,7 @@ export class ArgentBackendSessionService {
       this.accountSessionSignature,
     )
 
-    const session: BackendSessionBody = {
+    const session: ArgentServiceSessionBody = {
       sessionHash,
       sessionAuthorisation,
       cacheAuthorisation,
@@ -64,7 +64,7 @@ export class ArgentBackendSessionService {
       },
     }
 
-    const body: BackendSignSessionBody = {
+    const body: ArgentServiceSignSessionBody = {
       session,
     }
 
@@ -119,7 +119,7 @@ export class ArgentBackendSessionService {
     }
 
     const response = await fetch(
-      `${this.argentBackendBaseUrl}/cosigner/signSession`,
+      `${this.argentSessionServiceBaseUrl}/cosigner/signSession`,
       {
         method: "POST",
         headers: {
@@ -145,7 +145,7 @@ export class ArgentBackendSessionService {
     sessionSignature: bigint[],
     cacheAuthorisation: boolean,
     chainId: StarknetChainId,
-  ): Promise<BackendSignatureResponse> {
+  ): Promise<ArgentServiceSignatureResponse> {
     const sessionMessageHash = typedData.getMessageHash(
       getSessionTypedData(sessionTokenToSign, chainId),
       accountAddress,
@@ -155,7 +155,7 @@ export class ArgentBackendSessionService {
       this.accountSessionSignature,
     )
 
-    const session: BackendSessionBody = {
+    const session: ArgentServiceSessionBody = {
       sessionHash: sessionMessageHash,
       sessionAuthorisation,
       cacheAuthorisation,
@@ -187,7 +187,7 @@ export class ArgentBackendSessionService {
     )
 
     const response = await fetch(
-      `${this.argentBackendBaseUrl}/cosigner/signSessionEFO`,
+      `${this.argentSessionServiceBaseUrl}/cosigner/signSessionEFO`,
       {
         method: "POST",
         headers: {
