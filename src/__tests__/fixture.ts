@@ -1,4 +1,4 @@
-export const executionFromOusideTypedData = (to: string) => ({
+export const outsideExecutionTypedDataFixture = (to: string) => ({
   types: {
     StarknetDomain: [
       { name: "name", type: "shortstring" },

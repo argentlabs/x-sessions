@@ -10,7 +10,7 @@ import { StarknetChainId } from "starknet-types"
 import { beforeAll, describe, expect, it, vi } from "vitest"
 import { ArgentBackendSessionService } from "../sessionBackendService"
 import { SessionDappService } from "../sessionDappService"
-import { executionFromOusideTypedData } from "./fixture"
+import { outsideExecutionTypedDataFixture } from "./fixture"
 
 const allowedMethodContractAddress = stark.randomAddress()
 
@@ -188,7 +188,7 @@ describe("SessionDappService", () => {
 
     expect(signature).toBeInstanceOf(Array)
     expect(outsideExecutionTypedData).toStrictEqual(
-      executionFromOusideTypedData(allowedMethodContractAddress),
+      outsideExecutionTypedDataFixture(allowedMethodContractAddress),
     )
   })
 })
