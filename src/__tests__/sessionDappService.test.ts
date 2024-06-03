@@ -3,10 +3,10 @@ import {
   Call,
   RpcProvider,
   V2InvocationsSignerDetails,
+  constants,
   ec,
   stark,
 } from "starknet"
-import { StarknetChainId } from "starknet-types"
 import { beforeAll, describe, expect, it, vi } from "vitest"
 import { ArgentSessionService } from "../argentSessionService"
 import { SessionDappService } from "../sessionDappService"
@@ -36,13 +36,13 @@ const sessionAuthorizationSignature = ["signature1", "signature2"]
 
 describe("SessionDappService", () => {
   let argentSessionService: ArgentSessionService
-  let chainId: StarknetChainId
+  let chainId: constants.StarknetChainId
   let privateDappKey: Uint8Array
   let publicDappKey: string
   let sessionDappService: SessionDappService
 
   beforeAll(async () => {
-    chainId = StarknetChainId.SN_GOERLI
+    chainId = constants.StarknetChainId.SN_SEPOLIA
     privateDappKey = ec.starkCurve.utils.randomPrivateKey()
     publicDappKey = ec.starkCurve.getStarkKey(privateDappKey)
     argentSessionService = new ArgentSessionService(
@@ -111,7 +111,7 @@ describe("SessionDappService", () => {
   it("should get an outside execution call with getOutsideExecutionCall", async () => {
     const provider = new RpcProvider()
     vi.spyOn(provider, "getChainId").mockImplementation(
-      async () => StarknetChainId.SN_SEPOLIA,
+      async () => constants.StarknetChainId.SN_SEPOLIA,
     )
     const address = stark.randomAddress()
     const caller = "0x123"
@@ -140,7 +140,7 @@ describe("SessionDappService", () => {
         cacheAuthorisation,
         calls,
         address,
-        StarknetChainId.SN_SEPOLIA,
+        constants.StarknetChainId.SN_SEPOLIA,
         caller,
         execute_after,
         execute_before,
@@ -155,7 +155,7 @@ describe("SessionDappService", () => {
   it("should get an outside execution call with getOutsideExecutionTypedData", async () => {
     const provider = new RpcProvider()
     vi.spyOn(provider, "getChainId").mockImplementation(
-      async () => StarknetChainId.SN_SEPOLIA,
+      async () => constants.StarknetChainId.SN_SEPOLIA,
     )
     const address = stark.randomAddress()
     const execute_after = 1

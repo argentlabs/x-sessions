@@ -4,8 +4,8 @@ import {
   CairoCustomEnum,
   Calldata,
   ProviderInterface,
+  constants,
 } from "starknet"
-import { StarknetChainId } from "starknet-types"
 
 export enum SignerType {
   Starknet,
@@ -75,7 +75,7 @@ export type CreateSessionParams = {
   accountSessionSignature: ArraySignatureType
   dappKey: DappKey
   provider: ProviderInterface
-  chainId: StarknetChainId
+  chainId: constants.StarknetChainId
   sessionRequest: OffChainSession
   useCacheAuthorisation?: boolean
   argentSessionServiceBaseUrl?: string

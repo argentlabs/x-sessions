@@ -1,7 +1,6 @@
 import { HttpResponse, http } from "msw"
 import { setupServer } from "msw/node"
 import { constants, stark } from "starknet"
-import { StarknetChainId } from "starknet-types"
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest"
 import {
   OutsideExecution,
@@ -76,7 +75,7 @@ describe("ArgentSessionService", () => {
 
       const sessionTypedData = getSessionTypedData(
         sessionRequest,
-        StarknetChainId.SN_SEPOLIA,
+        constants.StarknetChainId.SN_SEPOLIA,
       )
 
       const response: ArgentServiceSignatureResponse =
@@ -84,7 +83,7 @@ describe("ArgentSessionService", () => {
           [],
           {
             cairoVersion: "1",
-            chainId: StarknetChainId.SN_SEPOLIA,
+            chainId: constants.StarknetChainId.SN_SEPOLIA,
             maxFee: 1000n,
             nonce: 1,
             version: "0x2",
@@ -154,7 +153,8 @@ describe("ArgentSessionService", () => {
         ],
       }
 
-      const chainId: StarknetChainId = constants.StarknetChainId.SN_SEPOLIA
+      const chainId: constants.StarknetChainId =
+        constants.StarknetChainId.SN_SEPOLIA
 
       const response: ArgentServiceSignatureResponse =
         await service.signSessionEFO(

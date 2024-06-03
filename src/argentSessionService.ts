@@ -5,13 +5,14 @@ import {
   Signature,
   V2InvocationsSignerDetails,
   V3InvocationsSignerDetails,
+  constants,
   num,
   stark,
   transaction,
   typedData,
 } from "starknet"
 
-import { StarknetChainId, TypedData } from "starknet-types"
+import { TypedData } from "starknet-types"
 import { ARGENT_SESSION_SERVICE_BASE_URL } from "./constants"
 import { SignSessionError } from "./errors"
 import {
@@ -144,7 +145,7 @@ export class ArgentSessionService {
     currentTypedData: TypedData,
     sessionSignature: bigint[],
     cacheAuthorisation: boolean,
-    chainId: StarknetChainId,
+    chainId: constants.StarknetChainId,
   ): Promise<ArgentServiceSignatureResponse> {
     const sessionMessageHash = typedData.getMessageHash(
       getSessionTypedData(sessionTokenToSign, chainId),
