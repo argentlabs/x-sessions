@@ -4,13 +4,14 @@ import {
   CallData,
   RawArgs,
   SignerInterface,
+  constants,
   hash,
   num,
   typedData,
   type Provider,
   type ProviderInterface,
 } from "starknet"
-import { StarknetChainId, TypedData } from "starknet-types"
+import { TypedData } from "starknet-types"
 
 export const typesRev1 = {
   StarknetDomain: [
@@ -106,7 +107,7 @@ export async function getOutsideExecutionCall(
   accountAddress: string,
   signer: SignerInterface,
   provider: ProviderInterface | Provider,
-  chainId?: StarknetChainId,
+  chainId?: constants.StarknetChainId,
 ): Promise<Call> {
   chainId = chainId ?? (await provider.getChainId())
   const currentTypedData = getOutsideExecutionTypedData(

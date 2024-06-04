@@ -1,10 +1,12 @@
-import { Account, Signature, hash, shortString, typedData } from "starknet"
 import {
-  StarknetChainId,
-  StarknetDomain,
-  StarknetWindowObject,
-  TypedData,
-} from "starknet-types"
+  Account,
+  Signature,
+  constants,
+  hash,
+  shortString,
+  typedData,
+} from "starknet"
+import { StarknetDomain, StarknetWindowObject, TypedData } from "starknet-types"
 import { ArgentSessionService } from "./argentSessionService"
 import { SessionDappService } from "./sessionDappService"
 import {
@@ -42,7 +44,9 @@ export const ALLOWED_METHOD_HASH = typedData.getTypeHash(
 
 // WARNING! Revision is encoded as a number in the StarkNetDomain type and not as shortstring
 // This is due to a bug in the Braavos implementation, and has been kept for compatibility
-const getSessionDomain = (chainId: StarknetChainId): StarknetDomain => ({
+const getSessionDomain = (
+  chainId: constants.StarknetChainId,
+): StarknetDomain => ({
   name: "SessionAccount.session",
   version: shortString.encodeShortString("1"),
   chainId,
@@ -51,7 +55,7 @@ const getSessionDomain = (chainId: StarknetChainId): StarknetDomain => ({
 
 const getSessionTypedData = (
   sessionRequest: OffChainSession,
-  chainId: StarknetChainId,
+  chainId: constants.StarknetChainId,
 ): TypedData => ({
   types: sessionTypes,
   primaryType: "Session",
@@ -113,7 +117,7 @@ const buildSessionAccount = async ({
 interface SignSessionMessageParams {
   wallet: StarknetWindowObject
   sessionParams: SessionParams
-  chainId: StarknetChainId
+  chainId: constants.StarknetChainId
 }
 
 const openSession = async ({
@@ -142,7 +146,7 @@ const openSession = async ({
   const sessionTypedData = getSessionTypedData(sessionRequest, chainId)
 
   return await wallet.request({
-    type: "starknet_signTypedData",
+    type: "wallet_signTypedData",
     params: sessionTypedData,
   })
 }

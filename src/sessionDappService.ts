@@ -13,6 +13,7 @@ import {
   V2InvocationsSignerDetails,
   V3InvocationsSignerDetails,
   byteArray,
+  constants,
   ec,
   encode,
   hash,
@@ -23,7 +24,6 @@ import {
   transaction,
   typedData,
 } from "starknet"
-import { StarknetChainId } from "starknet-types"
 import {
   OutsideExecution,
   OutsideExecutionTypedData,
@@ -69,7 +69,7 @@ class SessionSigner extends Signer {
 export class SessionDappService {
   constructor(
     private argentSessionService: ArgentSessionService,
-    public chainId: StarknetChainId,
+    public chainId: constants.StarknetChainId,
     private dappKey: DappKey,
   ) {}
 
@@ -334,7 +334,7 @@ export class SessionDappService {
   }
 
   public buildOutsideExecutionTypedData(
-    chainId: StarknetChainId,
+    chainId: constants.StarknetChainId,
     calls: Call[],
     caller?: string,
     execute_after?: BigNumberish,

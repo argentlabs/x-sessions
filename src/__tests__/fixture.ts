@@ -23,7 +23,7 @@ export const outsideExecutionTypedDataFixture = (to: string) => ({
   domain: {
     name: "Account.execute_from_outside",
     version: "1",
-    chainId: "0x534e5f474f45524c49",
+    chainId: "0x534e5f5345504f4c4941",
     revision: "1",
   },
   message: {

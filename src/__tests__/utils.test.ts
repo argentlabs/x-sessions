@@ -1,5 +1,12 @@
-import { Account, RpcProvider, ec, shortString, stark } from "starknet"
-import { StarknetChainId, StarknetWindowObject } from "starknet-types"
+import {
+  Account,
+  RpcProvider,
+  constants,
+  ec,
+  shortString,
+  stark,
+} from "starknet"
+import { StarknetWindowObject } from "starknet-types"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
   AllowedMethod,
@@ -20,7 +27,7 @@ type WalletMock = Pick<StarknetWindowObject, "request">
 export const walletMock: WalletMock = {
   request: async (request) => {
     switch (request.type) {
-      case "starknet_signTypedData":
+      case "wallet_signTypedData":
         return ["0x123", "0x456"]
       default:
         return undefined as any
@@ -41,7 +48,7 @@ const metadata: SessionMetadata = {
   txFees: [{ tokenAddress: stark.randomAddress(), maxAmount: "1000000000000" }],
 }
 const signerPublicKey = "0x123"
-const chainId = StarknetChainId.SN_SEPOLIA
+const chainId = constants.StarknetChainId.SN_SEPOLIA
 
 describe("Utils", () => {
   let dappKey: DappKey
@@ -222,7 +229,7 @@ describe("Utils", () => {
       const address = stark.randomAddress()
 
       const provider = new RpcProvider()
-      const chainId = StarknetChainId.SN_SEPOLIA
+      const chainId = constants.StarknetChainId.SN_SEPOLIA
       vi.spyOn(provider, "getChainId").mockImplementation(async () => chainId)
 
       const result = await buildSessionAccount({
