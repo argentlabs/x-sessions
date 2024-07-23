@@ -18,6 +18,7 @@ import {
   encode,
   hash,
   merkle,
+  num,
   selector,
   shortString,
   stark,
@@ -239,7 +240,8 @@ export class SessionDappService {
       const allowedIndex = sessionRequest.allowed_methods.findIndex(
         (allowedMethod) => {
           return (
-            allowedMethod["Contract Address"] == call.contractAddress &&
+            num.hexToDecimalString(allowedMethod["Contract Address"]) ===
+              num.hexToDecimalString(call.contractAddress) &&
             allowedMethod.selector == call.entrypoint
           )
         },
