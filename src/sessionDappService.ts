@@ -342,6 +342,7 @@ export class SessionDappService {
     execute_after?: BigNumberish,
     execute_before?: BigNumberish,
     nonce?: BigNumberish,
+    version: string = "2",
   ): OutsideExecutionTypedData {
     const outsideExecution = this.buildOutsideExecution(
       calls,
@@ -351,7 +352,7 @@ export class SessionDappService {
       nonce,
     )
 
-    return getOutsideExecutionTypedData(outsideExecution, chainId)
+    return getOutsideExecutionTypedData(outsideExecution, chainId, version)
   }
 
   public async getOutsideExecutionCall(
@@ -364,6 +365,7 @@ export class SessionDappService {
     execute_after?: BigNumberish,
     execute_before?: BigNumberish,
     nonce?: BigNumberish,
+    version: string = "2",
   ): Promise<Call> {
     const outsideExecution = this.buildOutsideExecution(
       calls,
@@ -376,6 +378,7 @@ export class SessionDappService {
     const outsideExecutionTypedData = getOutsideExecutionTypedData(
       outsideExecution,
       this.chainId,
+      version,
     )
 
     const signature =
@@ -450,6 +453,7 @@ export class SessionDappService {
     execute_after?: BigNumberish,
     execute_before?: BigNumberish,
     nonce?: BigNumberish,
+    version: string = "2",
   ): Promise<OutsideExecutionTypedDataResponse> {
     const currentTypedData = this.buildOutsideExecutionTypedData(
       this.chainId,
@@ -458,6 +462,7 @@ export class SessionDappService {
       execute_after,
       execute_before,
       nonce,
+      version,
     )
 
     const signature =
