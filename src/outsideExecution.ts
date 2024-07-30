@@ -34,7 +34,7 @@ export const typesRev1 = {
   ],
 }
 
-function getDomain(chainId: string, version: string = "2") {
+function getDomain(chainId: string, version: string = "1") {
   // WARNING! Version and revision are encoded as numbers in the StarkNetDomain type and not as shortstring
   // This is due to a bug in the Braavos implementation, and has been kept for compatibility
   return {
@@ -71,7 +71,7 @@ export function getTypedDataHash(
   outsideExecution: OutsideExecution,
   accountAddress: num.BigNumberish,
   chainId: string,
-  version: string = "2",
+  version: string = "1",
 ): string {
   return typedData.getMessageHash(
     getOutsideExecutionTypedData(outsideExecution, chainId, version),
@@ -82,7 +82,7 @@ export function getTypedDataHash(
 export function getOutsideExecutionTypedData(
   outsideExecution: OutsideExecution,
   chainId: string,
-  version: string = "2",
+  version: string = "1",
 ) {
   return {
     types: typesRev1,
@@ -110,7 +110,7 @@ export async function getOutsideExecutionCall(
   signer: SignerInterface,
   provider: ProviderInterface | Provider,
   chainId?: constants.StarknetChainId,
-  version: string = "2",
+  version: string = "1",
 ): Promise<Call> {
   chainId = chainId ?? (await provider.getChainId())
   const currentTypedData = getOutsideExecutionTypedData(

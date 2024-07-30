@@ -191,7 +191,6 @@ describe("SessionDappService", () => {
         execute_after,
         execute_before,
         nonce,
-        "1",
       )
 
     expect(signature).toBeInstanceOf(Array)
@@ -236,6 +235,7 @@ describe("SessionDappService", () => {
         execute_after,
         execute_before,
         nonce,
+        "2",
       )
 
     expect(signature).toBeInstanceOf(Array)
