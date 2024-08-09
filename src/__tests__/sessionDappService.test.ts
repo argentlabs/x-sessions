@@ -10,7 +10,10 @@ import {
 import { beforeAll, describe, expect, it, vi } from "vitest"
 import { ArgentSessionService } from "../argentSessionService"
 import { SessionDappService } from "../sessionDappService"
-import { outsideExecutionTypedDataFixture } from "./fixture"
+import {
+  outsideExecutionTypedDataFixture,
+  outsideExecutionTypedDataFixture_v2,
+} from "./fixture"
 
 const allowedMethodContractAddress = stark.randomAddress()
 
@@ -193,6 +196,51 @@ describe("SessionDappService", () => {
     expect(signature).toBeInstanceOf(Array)
     expect(outsideExecutionTypedData).toStrictEqual(
       outsideExecutionTypedDataFixture(allowedMethodContractAddress),
+    )
+  })
+
+  it("should get an outside execution call with getOutsideExecutionTypedData", async () => {
+    const provider = new RpcProvider()
+    vi.spyOn(provider, "getChainId").mockImplementation(
+      async () => constants.StarknetChainId.SN_SEPOLIA,
+    )
+    const address = stark.randomAddress()
+    const execute_after = 1
+    const execute_before = 999999999999999
+    const nonce = "0x1"
+    const calls: Call[] = [
+      {
+        contractAddress: allowedMethodContractAddress,
+        entrypoint: "some_method",
+        calldata: ["0x123"],
+      },
+    ]
+
+    vi.spyOn(argentSessionService, "signSessionEFO").mockImplementation(
+      async () => ({
+        publicKey: "0x123",
+        r: 10n,
+        s: 10n,
+      }),
+    )
+
+    const { signature, outsideExecutionTypedData } =
+      await sessionDappService.getOutsideExecutionTypedData(
+        sessionRequest,
+        sessionAuthorizationSignature,
+        false,
+        calls,
+        address,
+        "",
+        execute_after,
+        execute_before,
+        nonce,
+        "2",
+      )
+
+    expect(signature).toBeInstanceOf(Array)
+    expect(outsideExecutionTypedData).toStrictEqual(
+      outsideExecutionTypedDataFixture_v2(allowedMethodContractAddress),
     )
   })
 })
