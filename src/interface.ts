@@ -1,5 +1,5 @@
 import { BigNumberish, Call } from "starknet"
-import { ETransactionVersion } from "starknet-types"
+import { ETransactionVersion } from "@starknet-io/types-js"
 
 export type OffchainSessionDetails = {
   nonce: BigNumberish

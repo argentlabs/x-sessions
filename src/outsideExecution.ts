@@ -11,7 +11,7 @@ import {
   type Provider,
   type ProviderInterface,
 } from "starknet"
-import { TypedData } from "starknet-types"
+import { TypedData } from "@starknet-io/types-js"
 
 export const typesRev1 = {
   StarknetDomain: [

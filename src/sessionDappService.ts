@@ -1,4 +1,5 @@
 import * as u from "@noble/curves/abstract/utils"
+import { TypedData } from "@starknet-io/types-js"
 import {
   Account,
   ArraySignatureType,
@@ -9,7 +10,6 @@ import {
   ProviderInterface,
   RPC,
   Signer,
-  TypedData,
   V2InvocationsSignerDetails,
   V3InvocationsSignerDetails,
   byteArray,
@@ -25,6 +25,7 @@ import {
   transaction,
   typedData,
 } from "starknet"
+import { ArgentSessionService } from "./argentSessionService"
 import {
   OutsideExecution,
   OutsideExecutionTypedData,
@@ -32,7 +33,6 @@ import {
   getOutsideCall,
   getOutsideExecutionTypedData,
 } from "./outsideExecution"
-import { ArgentSessionService } from "./argentSessionService"
 import {
   ArgentServiceSignatureResponse,
   DappKey,
