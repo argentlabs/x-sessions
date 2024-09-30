@@ -6,7 +6,11 @@ import {
   shortString,
   typedData,
 } from "starknet"
-import { StarknetDomain, StarknetWindowObject, TypedData } from "starknet-types"
+import {
+  StarknetDomain,
+  StarknetWindowObject,
+  TypedData,
+} from "@starknet-io/types-js"
 import { ArgentSessionService } from "./argentSessionService"
 import { SessionDappService } from "./sessionDappService"
 import {
@@ -39,7 +43,7 @@ const sessionTypes = {
 export const ALLOWED_METHOD_HASH = typedData.getTypeHash(
   sessionTypes,
   "Allowed Method",
-  typedData.TypedDataRevision.Active,
+  typedData.TypedDataRevision.ACTIVE,
 )
 
 // WARNING! Revision is encoded as a number in the StarkNetDomain type and not as shortstring

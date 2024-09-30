@@ -1,3 +1,4 @@
+import { TypedData } from "@starknet-io/types-js"
 import {
   Call,
   InvocationsSignerDetails,
@@ -11,8 +12,6 @@ import {
   transaction,
   typedData,
 } from "starknet"
-
-import { TypedData } from "starknet-types"
 import { ARGENT_SESSION_SERVICE_BASE_URL } from "./constants"
 import { SignSessionError } from "./errors"
 import {
