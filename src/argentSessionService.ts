@@ -1,3 +1,4 @@
+import { TypedData } from "@starknet-io/types-js"
 import {
   Call,
   InvocationsSignerDetails,
@@ -11,8 +12,6 @@ import {
   transaction,
   typedData,
 } from "starknet"
-
-import { TypedData } from "starknet-types"
 import { ARGENT_SESSION_SERVICE_BASE_URL } from "./constants"
 import { SignSessionError } from "./errors"
 import {
@@ -96,7 +95,7 @@ export class ArgentSessionService {
         calldata: compiledCalldata,
         nonce: txDetailsV3.nonce.toString(),
         version: num.toBigInt(txDetailsV3.version).toString(10),
-        chainId: num.toBigInt(txDetailsV3.chainId).toString(10),
+        chain_id: num.toBigInt(txDetailsV3.chainId).toString(10),
         resource_bounds: {
           l1_gas: {
             max_amount: txDetailsV3.resourceBounds.l1_gas.max_amount.toString(),

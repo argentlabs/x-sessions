@@ -6,7 +6,7 @@ import {
   shortString,
   stark,
 } from "starknet"
-import { StarknetWindowObject } from "starknet-types"
+import { StarknetWindowObject } from "@starknet-io/types-js"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
   AllowedMethod,

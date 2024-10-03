@@ -115,7 +115,7 @@ export type ArgentServiceSessionTxV3Body = {
   calldata: Calldata
   nonce: string
   version: string
-  chainId: string
+  chain_id: string
   resource_bounds: {
     l1_gas: {
       max_amount: string
