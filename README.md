@@ -42,6 +42,7 @@ export type MetadataTxFee = {
 export type SessionMetadata = {
   projectID: string
   txFees: MetadataTxFee[]
+  projectSignature?: Signature
 }
 
 type SessionParams = {
