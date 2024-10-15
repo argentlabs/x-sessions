@@ -4,6 +4,7 @@ import {
   CairoCustomEnum,
   Calldata,
   ProviderInterface,
+  Signature,
   constants,
 } from "starknet"
 
@@ -56,6 +57,7 @@ export type MetadataTxFee = {
 export type SessionMetadata = {
   projectID: string
   txFees: MetadataTxFee[]
+  projectSignature: Signature
 }
 
 export type SessionParams = {
