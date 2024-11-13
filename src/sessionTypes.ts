@@ -61,24 +61,24 @@ export type SessionMetadata = {
 }
 
 export type SessionParams = {
-  publicDappKey: string
+  publicSessionKey: string
   allowedMethods: AllowedMethod[]
   expiry: bigint
   metaData: SessionMetadata
 }
 
-export type DappKey = {
+export type SessionKey = {
   publicKey: string
   privateKey: Uint8Array
 }
 
 export type CreateSessionParams = {
   address: string
-  accountSessionSignature: ArraySignatureType
-  dappKey: DappKey
+  accountSessionSignature: Signature
+  sessionKey: SessionKey
   provider: ProviderInterface
   chainId: constants.StarknetChainId
-  sessionRequest: OffChainSession
+  offchainSession: OffChainSession
   useCacheAuthorisation?: boolean
   argentSessionServiceBaseUrl?: string
 }

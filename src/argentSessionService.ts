@@ -1,208 +1,496 @@
+import * as u from "@noble/curves/abstract/utils"
 import { TypedData } from "@starknet-io/types-js"
 import {
+  Account,
+  ArraySignatureType,
+  BigNumberish,
   Call,
+  CallData,
   InvocationsSignerDetails,
+  ProviderInterface,
   RPC,
   Signature,
+  Signer,
   V2InvocationsSignerDetails,
   V3InvocationsSignerDetails,
+  byteArray,
   constants,
+  ec,
+  encode,
+  hash,
+  merkle,
   num,
+  selector,
+  shortString,
   stark,
   transaction,
   typedData,
 } from "starknet"
-import { ARGENT_SESSION_SERVICE_BASE_URL } from "./constants"
-import { SignSessionError } from "./errors"
+import { ArgentBackendService } from "./argentBackendService"
 import {
-  ArgentServiceSessionBody,
-  ArgentServiceSignSessionBody,
+  OutsideExecution,
+  OutsideExecutionTypedData,
+  OutsideExecutionTypedDataResponse,
+  getOutsideCall,
+  getOutsideExecutionTypedData,
+} from "./outsideExecution"
+import {
   ArgentServiceSignatureResponse,
+  SessionKey,
   OffChainSession,
+  OnChainSession,
+  SignerType,
 } from "./sessionTypes"
-import { getSessionTypedData } from "./utils"
+import { signerTypeToCustomEnum } from "./signerTypeToCustomEnum"
+import { ALLOWED_METHOD_HASH, getSessionTypedData } from "./utils"
+import { ARGENT_SESSION_SERVICE_BASE_URL } from "./constants"
+
+const SESSION_MAGIC = shortString.encodeShortString("session-token")
+
+class SessionSigner extends Signer {
+  constructor(
+    private signTransactionCallback: (
+      calls: Call[],
+      invocationSignerDetails: InvocationsSignerDetails,
+    ) => Promise<ArraySignatureType>,
+  ) {
+    super()
+  }
+
+  public async signRaw(_: string): Promise<string[]> {
+    throw new Error("Method not implemented.")
+  }
+
+  public async signTransaction(
+    calls: Call[],
+    invocationSignerDetails: InvocationsSignerDetails,
+  ): Promise<ArraySignatureType> {
+    return this.signTransactionCallback(calls, invocationSignerDetails)
+  }
+}
 
 export class ArgentSessionService {
+  public argentService: ArgentBackendService
+
   constructor(
-    public pubkey: string,
+    public chainId: constants.StarknetChainId,
+    public sessionKey: SessionKey,
     private accountSessionSignature: Signature,
     private argentSessionServiceBaseUrl = ARGENT_SESSION_SERVICE_BASE_URL,
-  ) {}
+  ) {
+    this.argentService = new ArgentBackendService(
+      this.sessionKey,
+      this.accountSessionSignature,
+      this.argentSessionServiceBaseUrl,
+    )
+  }
 
-  public async signTxAndSession(
+  public getAccountWithSessionSigner(
+    provider: ProviderInterface,
+    address: string,
+    sessionRequest: OffChainSession,
+    sessionAuthorizationSignature: ArraySignatureType,
+    cacheAuthorisation: boolean = false,
+  ) {
+    const sessionSigner = new SessionSigner(
+      (calls: Call[], invocationSignerDetails: InvocationsSignerDetails) => {
+        return this.signTransaction(
+          sessionAuthorizationSignature,
+          sessionRequest,
+          calls,
+          invocationSignerDetails,
+          cacheAuthorisation,
+        )
+      },
+    )
+
+    return new Account(provider, address, sessionSigner)
+  }
+
+  private async signTransaction(
+    sessionAuthorizationSignature: ArraySignatureType,
+    sessionRequest: OffChainSession,
     calls: Call[],
-    transactionsDetail: InvocationsSignerDetails,
-    sessionTypedData: TypedData,
-    sessionSignature: bigint[],
+    invocationSignerDetails: InvocationsSignerDetails,
     cacheAuthorisation: boolean,
-  ): Promise<ArgentServiceSignatureResponse> {
+  ): Promise<ArraySignatureType> {
     const compiledCalldata = transaction.getExecuteCalldata(
       calls,
-      transactionsDetail.cairoVersion,
+      invocationSignerDetails.cairoVersion,
     )
 
-    const sessionHash = typedData.getMessageHash(
-      sessionTypedData,
-      transactionsDetail.walletAddress,
-    )
-
-    const sessionAuthorisation = stark.formatSignature(
-      this.accountSessionSignature,
-    )
-
-    const session: ArgentServiceSessionBody = {
-      sessionHash,
-      sessionAuthorisation,
-      cacheAuthorisation,
-      sessionSignature: {
-        type: "StarknetKey",
-        signer: {
-          publicKey: this.pubkey,
-          r: sessionSignature[0].toString(),
-          s: sessionSignature[1].toString(),
-        },
-      },
-    }
-
-    const body: ArgentServiceSignSessionBody = {
-      session,
-    }
-
+    let txHash
     if (
       Object.values(RPC.ETransactionVersion2).includes(
-        transactionsDetail.version as any,
+        invocationSignerDetails.version as any,
       )
     ) {
-      const txDetailsV2 = transactionsDetail as V2InvocationsSignerDetails
-
-      body.transaction = {
-        contractAddress: txDetailsV2.walletAddress,
-        calldata: compiledCalldata,
-        maxFee: txDetailsV2.maxFee.toString(),
-        nonce: txDetailsV2.nonce.toString(),
-        version: num.toBigInt(txDetailsV2.version).toString(10),
-        chainId: num.toBigInt(txDetailsV2.chainId).toString(10),
-      }
+      const invocationsSignerDetailsV2 =
+        invocationSignerDetails as V2InvocationsSignerDetails
+      txHash = hash.calculateInvokeTransactionHash({
+        ...invocationsSignerDetailsV2,
+        senderAddress: invocationsSignerDetailsV2.walletAddress,
+        compiledCalldata,
+        version: invocationsSignerDetailsV2.version,
+      })
     } else if (
       Object.values(RPC.ETransactionVersion3).includes(
-        transactionsDetail.version as any,
+        invocationSignerDetails.version as any,
       )
     ) {
-      const txDetailsV3 = transactionsDetail as V3InvocationsSignerDetails
-
-      body.transaction = {
-        sender_address: txDetailsV3.walletAddress,
-        calldata: compiledCalldata,
-        nonce: txDetailsV3.nonce.toString(),
-        version: num.toBigInt(txDetailsV3.version).toString(10),
-        chain_id: num.toBigInt(txDetailsV3.chainId).toString(10),
-        resource_bounds: {
-          l1_gas: {
-            max_amount: txDetailsV3.resourceBounds.l1_gas.max_amount.toString(),
-            max_price_per_unit:
-              txDetailsV3.resourceBounds.l1_gas.max_price_per_unit.toString(),
-          },
-          l2_gas: {
-            max_amount: txDetailsV3.resourceBounds.l1_gas.max_amount.toString(),
-            max_price_per_unit:
-              txDetailsV3.resourceBounds.l1_gas.max_price_per_unit.toString(),
-          },
-        },
-        tip: txDetailsV3.tip.toString(),
-        paymaster_data: txDetailsV3.paymasterData.map((pm) => pm.toString()),
-        account_deployment_data: txDetailsV3.accountDeploymentData,
-        nonce_data_availability_mode: txDetailsV3.nonceDataAvailabilityMode,
-        fee_data_availability_mode: txDetailsV3.feeDataAvailabilityMode,
-      }
+      const invocationsSignerDetailsV3 =
+        invocationSignerDetails as V3InvocationsSignerDetails
+      txHash = hash.calculateInvokeTransactionHash({
+        ...invocationsSignerDetailsV3,
+        senderAddress: invocationsSignerDetailsV3.walletAddress,
+        compiledCalldata,
+        version: invocationsSignerDetailsV3.version,
+        nonceDataAvailabilityMode: stark.intDAM(
+          invocationsSignerDetailsV3.nonceDataAvailabilityMode,
+        ),
+        feeDataAvailabilityMode: stark.intDAM(
+          invocationsSignerDetailsV3.feeDataAvailabilityMode,
+        ),
+      })
     } else {
       throw Error("unsupported signTransaction version")
     }
-
-    const response = await fetch(
-      `${this.argentSessionServiceBaseUrl}/cosigner/signSession`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
-      },
+    return this.getSessionSignatureForTransaction(
+      sessionAuthorizationSignature,
+      sessionRequest,
+      txHash,
+      calls,
+      invocationSignerDetails.walletAddress,
+      invocationSignerDetails,
+      cacheAuthorisation,
     )
-
-    if (!response.ok) {
-      const error: { status: string } = await response.json()
-      throw new SignSessionError("Sign session error", error.status)
-    }
-
-    const json = await response.json()
-    return json.signature
   }
 
-  public async signSessionEFO(
-    sessionTokenToSign: OffChainSession,
+  public async getSessionSignatureForTransaction(
+    sessionAuthorizationSignature: ArraySignatureType,
+    sessionRequest: OffChainSession,
+    transactionHash: string,
+    calls: Call[],
     accountAddress: string,
-    currentTypedData: TypedData,
-    sessionSignature: bigint[],
+    invocationSignerDetails: InvocationsSignerDetails,
     cacheAuthorisation: boolean,
-    chainId: constants.StarknetChainId,
-  ): Promise<ArgentServiceSignatureResponse> {
-    const sessionMessageHash = typedData.getMessageHash(
-      getSessionTypedData(sessionTokenToSign, chainId),
+  ): Promise<ArraySignatureType> {
+    const session = this.compileSessionHelper(sessionRequest)
+    const sessionTypedData = getSessionTypedData(sessionRequest, this.chainId)
+
+    const sessionSignature = await this.signTxAndSession(
+      transactionHash,
       accountAddress,
-    )
-
-    const sessionAuthorisation = stark.formatSignature(
-      this.accountSessionSignature,
-    )
-
-    const session: ArgentServiceSessionBody = {
-      sessionHash: sessionMessageHash,
-      sessionAuthorisation,
+      sessionTypedData,
       cacheAuthorisation,
-      sessionSignature: {
-        type: "StarknetKey",
-        signer: {
-          publicKey: this.pubkey,
-          r: sessionSignature[0].toString(),
-          s: sessionSignature[1].toString(),
-        },
-      },
-    }
+    )
 
-    const message = {
-      type: "eip712",
-      accountAddress,
-      chain: "starknet",
-      message: currentTypedData,
-    }
+    const guardianSignature = await this.argentService.signTxAndSession(
+      calls,
+      invocationSignerDetails,
+      sessionTypedData,
+      sessionSignature,
+      cacheAuthorisation,
+    )
 
-    const body = {
+    const sessionToken = await this.compileSessionTokenHelper(
       session,
-      message,
-    }
-
-    // needed due to bigint serialization
-    const stringifiedBody = JSON.stringify(body, (_, v) =>
-      typeof v === "bigint" ? v.toString() : v,
+      sessionRequest,
+      calls,
+      sessionSignature,
+      sessionAuthorizationSignature,
+      guardianSignature,
+      cacheAuthorisation,
     )
 
-    const response = await fetch(
-      `${this.argentSessionServiceBaseUrl}/cosigner/signSessionEFO`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+    return [SESSION_MAGIC, ...CallData.compile(sessionToken)]
+  }
+
+  private async signTxAndSession(
+    transactionHash: string,
+    accountAddress: string,
+    sessionTypedData: TypedData,
+    cacheAuthorisation: boolean,
+  ): Promise<bigint[]> {
+    const sessionMessageHash = typedData.getMessageHash(
+      sessionTypedData,
+      accountAddress,
+    )
+
+    const sessionWithTxHash = hash.computePoseidonHashOnElements([
+      transactionHash,
+      sessionMessageHash,
+      +cacheAuthorisation,
+    ])
+
+    const signature = ec.starkCurve.sign(
+      sessionWithTxHash,
+      this.sessionKey.privateKey,
+    )
+    return [signature.r, signature.s]
+  }
+
+  private buildMerkleTree(sessionRequest: OffChainSession): merkle.MerkleTree {
+    const leaves = sessionRequest.allowed_methods.map((method) =>
+      hash.computePoseidonHashOnElements([
+        ALLOWED_METHOD_HASH,
+        method["Contract Address"],
+        selector.getSelectorFromName(method.selector),
+      ]),
+    )
+    return new merkle.MerkleTree(leaves, hash.computePoseidonHash)
+  }
+
+  private getSessionProofs(
+    sessionRequest: OffChainSession,
+    calls: Call[],
+  ): string[][] {
+    const tree = this.buildMerkleTree(sessionRequest)
+
+    return calls.map((call) => {
+      const allowedIndex = sessionRequest.allowed_methods.findIndex(
+        (allowedMethod) => {
+          return (
+            num.hexToDecimalString(allowedMethod["Contract Address"]) ===
+              num.hexToDecimalString(call.contractAddress) &&
+            allowedMethod.selector == call.entrypoint
+          )
         },
-        body: stringifiedBody,
-      },
+      )
+
+      return tree.getProof(tree.leaves[allowedIndex], tree.leaves)
+    })
+  }
+
+  private compileSessionHelper(
+    sessionRequest: OffChainSession,
+  ): OnChainSession {
+    const bArray = byteArray.byteArrayFromString(
+      sessionRequest.metadata as string,
+    )
+    const elements = [
+      bArray.data.length,
+      ...bArray.data,
+      bArray.pending_word,
+      bArray.pending_word_len,
+    ]
+    const metadataHash = hash.computePoseidonHashOnElements(elements)
+
+    const session = {
+      expires_at: sessionRequest.expires_at,
+      allowed_methods_root:
+        this.buildMerkleTree(sessionRequest).root.toString(),
+      metadata_hash: metadataHash,
+      session_key_guid: sessionRequest.session_key_guid,
+    }
+    return session
+  }
+
+  private async compileSessionTokenHelper(
+    session: OnChainSession,
+    sessionRequest: OffChainSession,
+    calls: Call[],
+    sessionSignature: bigint[],
+    session_authorization: string[],
+    guardianSignature: ArgentServiceSignatureResponse,
+    cache_authorization: boolean,
+  ) {
+    return {
+      session,
+      cache_authorization,
+      session_authorization,
+      sessionSignature: this.getStarknetSignatureType(
+        this.sessionKey.publicKey,
+        sessionSignature,
+      ),
+      guardianSignature: this.getStarknetSignatureType(
+        guardianSignature.publicKey,
+        [guardianSignature.r, guardianSignature.s],
+      ),
+      proofs: this.getSessionProofs(sessionRequest, calls),
+    }
+  }
+
+  // function needed as starknetSignatureType is already compiled
+  private getStarknetSignatureType(pubkey: BigNumberish, signature: bigint[]) {
+    return signerTypeToCustomEnum(SignerType.Starknet, {
+      pubkey,
+      r: signature[0],
+      s: signature[1],
+    })
+  }
+
+  public buildOutsideExecution(
+    calls: Call[],
+    caller?: string,
+    execute_after?: BigNumberish,
+    execute_before?: BigNumberish,
+    nonce?: BigNumberish,
+  ): OutsideExecution {
+    const defaultCaller = shortString.encodeShortString("ANY_CALLER")
+
+    const randomNonce = encode.addHexPrefix(
+      u.bytesToHex(ec.starkCurve.utils.randomPrivateKey()),
     )
 
-    if (!response.ok) {
-      const error: { status: string } = await response.json()
-      throw new SignSessionError("Sign session error", error.status)
-    }
+    const now = Date.now()
+    const defaultExecuteBefore = Math.floor((now + 60_000 * 20) / 1000)
+    const defaultExecuteAfter = Math.floor((now - 60_000 * 10) / 1000)
 
-    const json = await response.json()
-    return json.signature
+    return {
+      caller: caller || defaultCaller,
+      nonce: nonce || randomNonce,
+      execute_after: execute_after || defaultExecuteAfter,
+      execute_before: execute_before || defaultExecuteBefore,
+      calls: calls.map((call) => getOutsideCall(call)),
+    }
+  }
+
+  public buildOutsideExecutionTypedData(
+    chainId: constants.StarknetChainId,
+    calls: Call[],
+    caller?: string,
+    execute_after?: BigNumberish,
+    execute_before?: BigNumberish,
+    nonce?: BigNumberish,
+    version: string = "1",
+  ): OutsideExecutionTypedData {
+    const outsideExecution = this.buildOutsideExecution(
+      calls,
+      caller,
+      execute_after,
+      execute_before,
+      nonce,
+    )
+
+    return getOutsideExecutionTypedData(outsideExecution, chainId, version)
+  }
+
+  public async getOutsideExecutionCall(
+    sessionRequest: OffChainSession,
+    sessionAuthorizationSignature: ArraySignatureType,
+    cacheAuthorisation: boolean,
+    calls: Call[],
+    accountAddress: string,
+    caller?: string,
+    execute_after?: BigNumberish,
+    execute_before?: BigNumberish,
+    nonce?: BigNumberish,
+    version: string = "1",
+  ): Promise<Call> {
+    const outsideExecution = this.buildOutsideExecution(
+      calls,
+      caller,
+      execute_after,
+      execute_before,
+      nonce,
+    )
+
+    const outsideExecutionTypedData = getOutsideExecutionTypedData(
+      outsideExecution,
+      this.chainId,
+      version,
+    )
+
+    const signature =
+      await this.getSessionSignatureForOutsideExecutionTypedData(
+        sessionAuthorizationSignature,
+        sessionRequest,
+        calls,
+        accountAddress,
+        outsideExecutionTypedData,
+        cacheAuthorisation,
+      )
+
+    return {
+      contractAddress: accountAddress,
+      entrypoint: "execute_from_outside_v2",
+      calldata: CallData.compile({ ...outsideExecution, signature }),
+    }
+  }
+
+  public async getSessionSignatureForOutsideExecutionTypedData(
+    sessionAuthorizationSignature: ArraySignatureType,
+    sessionRequest: OffChainSession,
+    calls: Call[],
+    accountAddress: string,
+    outsideExecutionTypedData: TypedData,
+    cacheAuthorisation: boolean,
+  ): Promise<ArraySignatureType> {
+    const session = this.compileSessionHelper(sessionRequest)
+    const sessionTypedData = getSessionTypedData(sessionRequest, this.chainId)
+
+    const messageHash = typedData.getMessageHash(
+      outsideExecutionTypedData,
+      accountAddress,
+    )
+
+    const sessionSignature = await this.signTxAndSession(
+      messageHash,
+      accountAddress,
+      sessionTypedData,
+      cacheAuthorisation,
+    )
+
+    const guardianSignature = await this.argentService.signSessionEFO(
+      sessionRequest,
+      accountAddress,
+      outsideExecutionTypedData,
+      sessionSignature,
+      cacheAuthorisation,
+      this.chainId,
+    )
+
+    const sessionToken = await this.compileSessionTokenHelper(
+      session,
+      sessionRequest,
+      calls,
+      sessionSignature,
+      sessionAuthorizationSignature,
+      guardianSignature,
+      cacheAuthorisation,
+    )
+
+    return [SESSION_MAGIC, ...CallData.compile(sessionToken)].map((item) =>
+      num.toHex(item),
+    )
+  }
+
+  public async getOutsideExecutionTypedData(
+    sessionRequest: OffChainSession,
+    sessionAuthorizationSignature: ArraySignatureType,
+    cacheAuthorisation: boolean,
+    calls: Call[],
+    accountAddress: string,
+    caller?: string,
+    execute_after?: BigNumberish,
+    execute_before?: BigNumberish,
+    nonce?: BigNumberish,
+    version: string = "1",
+  ): Promise<OutsideExecutionTypedDataResponse> {
+    const currentTypedData = this.buildOutsideExecutionTypedData(
+      this.chainId,
+      calls,
+      caller,
+      execute_after,
+      execute_before,
+      nonce,
+      version,
+    )
+
+    const signature =
+      await this.getSessionSignatureForOutsideExecutionTypedData(
+        sessionAuthorizationSignature,
+        sessionRequest,
+        calls,
+        accountAddress,
+        currentTypedData,
+        cacheAuthorisation,
+      )
+
+    return {
+      outsideExecutionTypedData: currentTypedData,
+      signature,
+    }
   }
 }

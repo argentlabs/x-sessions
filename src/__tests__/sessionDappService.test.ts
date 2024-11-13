@@ -9,7 +9,6 @@ import {
 } from "starknet"
 import { beforeAll, describe, expect, it, vi } from "vitest"
 import { ArgentSessionService } from "../argentSessionService"
-import { SessionDappService } from "../sessionDappService"
 import {
   outsideExecutionTypedDataFixture,
   outsideExecutionTypedDataFixture_v2,
@@ -38,40 +37,39 @@ const sessionRequest = {
 const sessionAuthorizationSignature = ["signature1", "signature2"]
 
 describe("SessionDappService", () => {
-  let argentSessionService: ArgentSessionService
   let chainId: constants.StarknetChainId
-  let privateDappKey: Uint8Array
-  let publicDappKey: string
-  let sessionDappService: SessionDappService
+  let privateSessionKey: Uint8Array
+  let publicSessionKey: string
+  let argentSessionService: ArgentSessionService
 
   beforeAll(async () => {
     chainId = constants.StarknetChainId.SN_SEPOLIA
-    privateDappKey = ec.starkCurve.utils.randomPrivateKey()
-    publicDappKey = ec.starkCurve.getStarkKey(privateDappKey)
+    privateSessionKey = ec.starkCurve.utils.randomPrivateKey()
+    publicSessionKey = ec.starkCurve.getStarkKey(privateSessionKey)
+
     argentSessionService = new ArgentSessionService(
-      publicDappKey,
+      chainId,
+      {
+        privateKey: privateSessionKey,
+        publicKey: publicSessionKey,
+      },
       sessionAuthorizationSignature,
     )
-
-    vi.spyOn(argentSessionService, "signTxAndSession").mockImplementation(
-      async () => ({
-        publicKey: "0x123",
-        r: 10n,
-        s: 10n,
-      }),
-    )
-
-    sessionDappService = new SessionDappService(argentSessionService, chainId, {
-      privateKey: privateDappKey,
-      publicKey: publicDappKey,
-    })
+    vi.spyOn(
+      argentSessionService.argentService,
+      "signTxAndSession",
+    ).mockImplementation(async () => ({
+      publicKey: "0x123",
+      r: 10n,
+      s: 10n,
+    }))
   })
 
   it("should get an account with session signer", async () => {
     const provider = new RpcProvider()
     const address = stark.randomAddress()
 
-    const account = sessionDappService.getAccountWithSessionSigner(
+    const account = argentSessionService.getAccountWithSessionSigner(
       provider,
       address,
       sessionRequest,
@@ -93,7 +91,7 @@ describe("SessionDappService", () => {
     }
 
     const signatureResult: any = await (
-      sessionDappService as any
+      argentSessionService as any
     ).signTransaction(
       sessionAuthorizationSignature,
       sessionRequest,
@@ -103,8 +101,10 @@ describe("SessionDappService", () => {
     )
 
     expect(signatureResult).toBeInstanceOf(Array)
-    expect(argentSessionService.signTxAndSession).toHaveBeenCalled()
-    expect(argentSessionService.signTxAndSession).toReturnWith({
+    expect(
+      argentSessionService.argentService.signTxAndSession,
+    ).toHaveBeenCalled()
+    expect(argentSessionService.argentService.signTxAndSession).toReturnWith({
       publicKey: "0x123",
       r: 10n,
       s: 10n,
@@ -128,16 +128,17 @@ describe("SessionDappService", () => {
       },
     ]
 
-    vi.spyOn(argentSessionService, "signSessionEFO").mockImplementation(
-      async () => ({
-        publicKey: "0x123",
-        r: 10n,
-        s: 10n,
-      }),
-    )
+    vi.spyOn(
+      argentSessionService.argentService,
+      "signSessionEFO",
+    ).mockImplementation(async () => ({
+      publicKey: "0x123",
+      r: 10n,
+      s: 10n,
+    }))
 
     const outsideExecutionCall =
-      await sessionDappService.getOutsideExecutionCall(
+      await argentSessionService.getOutsideExecutionCall(
         sessionRequest,
         sessionAuthorizationSignature,
         cacheAuthorisation,
@@ -172,16 +173,17 @@ describe("SessionDappService", () => {
       },
     ]
 
-    vi.spyOn(argentSessionService, "signSessionEFO").mockImplementation(
-      async () => ({
-        publicKey: "0x123",
-        r: 10n,
-        s: 10n,
-      }),
-    )
+    vi.spyOn(
+      argentSessionService.argentService,
+      "signSessionEFO",
+    ).mockImplementation(async () => ({
+      publicKey: "0x123",
+      r: 10n,
+      s: 10n,
+    }))
 
     const { signature, outsideExecutionTypedData } =
-      await sessionDappService.getOutsideExecutionTypedData(
+      await argentSessionService.getOutsideExecutionTypedData(
         sessionRequest,
         sessionAuthorizationSignature,
         false,
@@ -216,16 +218,17 @@ describe("SessionDappService", () => {
       },
     ]
 
-    vi.spyOn(argentSessionService, "signSessionEFO").mockImplementation(
-      async () => ({
-        publicKey: "0x123",
-        r: 10n,
-        s: 10n,
-      }),
-    )
+    vi.spyOn(
+      argentSessionService.argentService,
+      "signSessionEFO",
+    ).mockImplementation(async () => ({
+      publicKey: "0x123",
+      r: 10n,
+      s: 10n,
+    }))
 
     const { signature, outsideExecutionTypedData } =
-      await sessionDappService.getOutsideExecutionTypedData(
+      await argentSessionService.getOutsideExecutionTypedData(
         sessionRequest,
         sessionAuthorizationSignature,
         false,

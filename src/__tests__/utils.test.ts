@@ -1,22 +1,15 @@
-import {
-  Account,
-  RpcProvider,
-  constants,
-  ec,
-  shortString,
-  stark,
-} from "starknet"
+import { Account, RpcProvider, constants, shortString, stark } from "starknet"
 import { StarknetWindowObject } from "@starknet-io/types-js"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
   AllowedMethod,
-  DappKey,
+  SessionKey,
   SessionMetadata,
   SessionParams,
 } from "../sessionTypes"
 import {
   buildSessionAccount,
-  createSessionRequest,
+  createOffchainSession,
   getSessionDomain,
   getSessionTypedData,
   openSession,
@@ -35,7 +28,8 @@ export const walletMock: WalletMock = {
   },
 }
 
-const contractAddress = stark.randomAddress()
+const contractAddress = "0x123456789"
+const tokenAddress = "0x987654321"
 const allowedMethods: AllowedMethod[] = [
   {
     "Contract Address": contractAddress,
@@ -45,20 +39,20 @@ const allowedMethods: AllowedMethod[] = [
 const expiry = BigInt(1234567890)
 const metadata: SessionMetadata = {
   projectID: "test",
-  txFees: [{ tokenAddress: stark.randomAddress(), maxAmount: "1000000000000" }],
+  txFees: [{ tokenAddress, maxAmount: "1000000000000" }],
 }
 const signerPublicKey = "0x123"
 const chainId = constants.StarknetChainId.SN_SEPOLIA
 
 describe("Utils", () => {
-  let dappKey: DappKey
+  let sessionKey: SessionKey
 
   beforeEach(() => {
-    const privateDappKey = ec.starkCurve.utils.randomPrivateKey()
-    const publicDappKey = ec.starkCurve.getStarkKey(privateDappKey)
-    dappKey = {
-      privateKey: privateDappKey,
-      publicKey: publicDappKey,
+    const privateSessionKey = new Uint8Array([1, 2, 3, 4, 5])
+    const publicSessionKey = "0x1234567890abcdef"
+    sessionKey = {
+      privateKey: privateSessionKey,
+      publicKey: publicSessionKey,
     }
   })
 
@@ -125,9 +119,9 @@ describe("Utils", () => {
     })
   })
 
-  describe("createSessionRequest", () => {
+  describe("createOffchainSession", () => {
     it("should return an OffChainSession object", () => {
-      const sessionRequest = createSessionRequest(
+      const sessionRequest = createOffchainSession(
         allowedMethods,
         expiry,
         metadata,
@@ -150,12 +144,12 @@ describe("Utils", () => {
   })
 
   describe("openSession", () => {
-    it("should throw error if publicDappKey is not provided", async () => {
+    it("should throw error if publicSessionKey is not provided", async () => {
       const sessionParams: SessionParams = {
         allowedMethods,
         expiry,
         metaData: metadata,
-        publicDappKey: "",
+        publicSessionKey: "",
       }
 
       await expect(
@@ -164,7 +158,7 @@ describe("Utils", () => {
           sessionParams,
           chainId,
         }),
-      ).rejects.toThrowError("publicDappKey is required")
+      ).rejects.toThrowError("publicSessionKey is required")
     })
 
     /* it("should open a session using an Account", async () => {
@@ -172,7 +166,7 @@ describe("Utils", () => {
         allowedMethods,
         expiry,
         metaData: metadata,
-        publicDappKey: dappKey.publicKey,
+        publicSessionKey: sessionKey.publicKey,
       }
 
       const account = new Account(
@@ -201,7 +195,7 @@ describe("Utils", () => {
         allowedMethods,
         expiry,
         metaData: metadata,
-        publicDappKey: dappKey.publicKey,
+        publicSessionKey: sessionKey.publicKey,
       }
 
       const accountSessionSignature = await openSession({
@@ -211,14 +205,28 @@ describe("Utils", () => {
       })
 
       expect(accountSessionSignature).not.toBeNull()
-      expect(accountSessionSignature).toStrictEqual(["0x123", "0x456"])
+      expect(accountSessionSignature).toStrictEqual({
+        accountSessionSignature: ["0x123", "0x456"],
+        offchainSession: {
+          allowed_methods: [
+            {
+              "Contract Address": contractAddress,
+              selector: "some_method",
+            },
+          ],
+          expires_at: 1234567890,
+          metadata: `{"projectID":"test","txFees":[{"tokenAddress":"${tokenAddress}","maxAmount":"1000000000000"}]}`,
+          session_key_guid:
+            "0x4bef97e579cdb4c9fa3546db3017a69ddbc40598cd7311359f1e6c03f02b155",
+        },
+      })
     })
   })
 
   describe("buildSessionAccount", () => {
     it("should return an Account object", async () => {
       const useCacheAuthorisation = false
-      const sessionRequest = createSessionRequest(
+      const offchainSession = createOffchainSession(
         allowedMethods,
         expiry,
         metadata,
@@ -235,11 +243,11 @@ describe("Utils", () => {
       const result = await buildSessionAccount({
         useCacheAuthorisation,
         accountSessionSignature,
-        sessionRequest,
+        offchainSession,
         provider,
         chainId,
         address,
-        dappKey,
+        sessionKey,
       })
 
       expect(result).toBeInstanceOf(Account)

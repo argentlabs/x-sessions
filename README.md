@@ -46,7 +46,7 @@ export type SessionMetadata = {
 }
 
 type SessionParams = {
-  dappKey?: Uint8Array // this is optional. This sdk generate a dappKey using ec.starkCurve.utils.randomPrivateKey() if not provided
+  sessionKey?: Uint8Array // this is optional. This sdk generate a sessionKey using ec.starkCurve.utils.randomPrivateKey() if not provided
   allowedMethods: AllowedMethod[]
   expiry: bigint
   metaData: SessionMetadata
@@ -74,7 +74,7 @@ const sessionParams: SessionParams = {
   expiry: Math.floor(
     (Date.now() + 1000 * 60 * 60 * 24) / 1000
   ) as any, // ie: 1 day
-  dappKey: ec.starkCurve.utils.randomPrivateKey(),
+  sessionKey: ec.starkCurve.utils.randomPrivateKey(),
   metaData: {
     projectID: "test-dapp",
     txFees: [
@@ -98,7 +98,7 @@ const sessionRequest = createSessionRequest(
   sessionParams.allowedMethods,
   sessionParams.expiry,
   sessionParams.metaData,
-  sessionParams.dappKey
+  sessionParams.sessionKey
 )
 
 const sessionAccount = await buildSessionAccount({
@@ -113,7 +113,7 @@ const sessionAccount = await buildSessionAccount({
     chainId: constants.StarknetChainId.SN_SEPOLIA
   }),
   address, // account address
-  dappKey
+  sessionKey
 })
 
 try {
@@ -140,7 +140,7 @@ This package expose a method in order to get the Call required to perform an exe
 ```typescript
 // instantiate argent session service
 const beService = new ArgentSessionService(
-  dappKey.publicKey,
+  sessionKey.publicKey,
   accountSessionSignature
 )
 
@@ -148,7 +148,7 @@ const beService = new ArgentSessionService(
 const sessionDappService = new SessionDappService(
   beService,
   chainId,
-  dappKey
+  sessionKey
 )
 
 // example for creating the calldata

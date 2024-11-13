@@ -4,6 +4,7 @@ import {
   constants,
   hash,
   shortString,
+  stark,
   typedData,
 } from "starknet"
 import {
@@ -12,7 +13,6 @@ import {
   TypedData,
 } from "@starknet-io/types-js"
 import { ArgentSessionService } from "./argentSessionService"
-import { SessionDappService } from "./sessionDappService"
 import {
   AllowedMethod,
   CreateSessionParams,
@@ -72,7 +72,7 @@ const getSessionTypedData = (
   },
 })
 
-const createSessionRequest = (
+const createOffchainSession = (
   allowed_methods: AllowedMethod[],
   expires_at: bigint,
   metadata: SessionMetadata,
@@ -90,30 +90,27 @@ const createSessionRequest = (
 const buildSessionAccount = async ({
   useCacheAuthorisation,
   accountSessionSignature,
-  sessionRequest,
+  offchainSession,
   provider,
   chainId,
   address,
-  dappKey,
+  sessionKey,
   argentSessionServiceBaseUrl,
 }: CreateSessionParams): Promise<Account> => {
-  const argentSessionService = new ArgentSessionService(
-    dappKey.publicKey,
-    accountSessionSignature,
-    argentSessionServiceBaseUrl,
-  )
+  const formattedSignature = stark.formatSignature(accountSessionSignature)
 
-  const dappService = new SessionDappService(
-    argentSessionService,
+  const dappService = new ArgentSessionService(
     chainId,
-    dappKey,
+    sessionKey,
+    formattedSignature,
+    argentSessionServiceBaseUrl,
   )
 
   return dappService.getAccountWithSessionSigner(
     provider,
     address,
-    sessionRequest,
-    accountSessionSignature,
+    offchainSession,
+    formattedSignature,
     useCacheAuthorisation,
   )
 }
@@ -128,36 +125,44 @@ const openSession = async ({
   wallet,
   sessionParams,
   chainId,
-}: SignSessionMessageParams): Promise<string[] | Signature> => {
+}: SignSessionMessageParams): Promise<{
+  accountSessionSignature: string[] | Signature
+  offchainSession: OffChainSession
+}> => {
   const {
     allowedMethods,
     expiry = BigInt(Date.now()) + 10000n,
-    publicDappKey,
+    publicSessionKey,
     metaData,
   } = sessionParams
 
-  if (!publicDappKey) {
-    throw new Error("publicDappKey is required")
+  if (!publicSessionKey) {
+    throw new Error("publicSessionKey is required")
   }
 
-  const sessionRequest = createSessionRequest(
+  const offchainSession = createOffchainSession(
     allowedMethods,
     expiry,
     metaData,
-    publicDappKey,
+    publicSessionKey,
   )
 
-  const sessionTypedData = getSessionTypedData(sessionRequest, chainId)
+  const sessionTypedData = getSessionTypedData(offchainSession, chainId)
 
-  return await wallet.request({
+  const accountSessionSignature = await wallet.request({
     type: "wallet_signTypedData",
     params: sessionTypedData,
   })
+
+  return {
+    accountSessionSignature,
+    offchainSession,
+  }
 }
 
 export {
   buildSessionAccount,
-  createSessionRequest,
+  createOffchainSession,
   getSessionDomain,
   getSessionTypedData,
   openSession,

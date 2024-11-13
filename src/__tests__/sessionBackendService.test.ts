@@ -6,7 +6,7 @@ import {
   OutsideExecution,
   getOutsideExecutionTypedData,
 } from "../outsideExecution"
-import { ArgentSessionService } from "../argentSessionService"
+import { ArgentBackendService } from "../argentBackendService"
 import { ArgentServiceSignatureResponse } from "../sessionTypes"
 import { getSessionTypedData } from "../utils"
 
@@ -34,10 +34,12 @@ export const restHandlers = [
 const server = setupServer(...restHandlers)
 
 describe("ArgentSessionService", () => {
-  const pubkey = "0x1234567890abcdef"
   const accountSessionSignature = ["123", "456"]
-  const service = new ArgentSessionService(
-    pubkey,
+  const service = new ArgentBackendService(
+    {
+      privateKey: new Uint8Array([1, 2, 3, 4, 5]),
+      publicKey: "0x1234567890abcdef",
+    },
     accountSessionSignature,
     "http://localhost:3000",
   )
