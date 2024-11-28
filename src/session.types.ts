@@ -60,8 +60,8 @@ export type SessionMetadata = {
   projectSignature?: Signature
 }
 
-export type SessionParams = {
-  publicSessionKey: string
+export type CreateSessionParams = {
+  sessionKey: SessionKey
   allowedMethods: AllowedMethod[]
   expiry: bigint
   metaData: SessionMetadata
@@ -72,13 +72,10 @@ export type SessionKey = {
   privateKey: Uint8Array
 }
 
-export type CreateSessionParams = {
-  address: string
-  accountSessionSignature: Signature
+export type BuildSessionAccountParams = {
+  session: Session
   sessionKey: SessionKey
   provider: ProviderInterface
-  chainId: constants.StarknetChainId
-  offchainSession: OffChainSession
   useCacheAuthorisation?: boolean
   argentSessionServiceBaseUrl?: string
 }
@@ -138,4 +135,22 @@ export type ArgentServiceSessionTxV3Body = {
 export type ArgentServiceSignSessionBody = {
   session: ArgentServiceSessionBody
   transaction?: ArgentServiceSessionTxV1Body | ArgentServiceSessionTxV3Body
+}
+
+export interface Session {
+  sessionKeyGuid: BigNumberish
+  hash: BigNumberish
+  version: string
+  address: string
+  chainId: constants.StarknetChainId
+  expiresAt: BigNumberish
+  allowedMethods: AllowedMethod[]
+  metadata: string
+  authorisationSignature: Signature
+  sessionKey: SessionKey
+}
+
+export interface VerifySessionParams {
+  session: Session
+  sessionKey: SessionKey
 }

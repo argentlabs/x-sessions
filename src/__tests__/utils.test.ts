@@ -1,18 +1,25 @@
-import { Account, RpcProvider, constants, shortString, stark } from "starknet"
+import {
+  Account,
+  RpcProvider,
+  constants,
+  shortString,
+  stark,
+  typedData,
+} from "starknet"
 import { StarknetWindowObject } from "@starknet-io/types-js"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
   AllowedMethod,
   SessionKey,
   SessionMetadata,
-  SessionParams,
-} from "../sessionTypes"
+  CreateSessionParams,
+} from "../session.types"
 import {
   buildSessionAccount,
   createOffchainSession,
   getSessionDomain,
   getSessionTypedData,
-  openSession,
+  createSession,
 } from "../utils"
 
 type WalletMock = Pick<StarknetWindowObject, "request">
@@ -49,10 +56,10 @@ describe("Utils", () => {
 
   beforeEach(() => {
     const privateSessionKey = new Uint8Array([1, 2, 3, 4, 5])
-    const publicSessionKey = "0x1234567890abcdef"
+    const sessionPublicKey = "0x1234567890abcdef"
     sessionKey = {
       privateKey: privateSessionKey,
-      publicKey: publicSessionKey,
+      publicKey: sessionPublicKey,
     }
   })
 
@@ -143,62 +150,17 @@ describe("Utils", () => {
     })
   })
 
-  describe("openSession", () => {
-    it("should throw error if publicSessionKey is not provided", async () => {
-      const sessionParams: SessionParams = {
-        allowedMethods,
-        expiry,
-        metaData: metadata,
-        publicSessionKey: "",
-      }
-
-      await expect(
-        openSession({
-          wallet: walletMock as StarknetWindowObject,
-          sessionParams,
-          chainId,
-        }),
-      ).rejects.toThrowError("publicSessionKey is required")
-    })
-
-    /* it("should open a session using an Account", async () => {
-      const sessionParams: SessionParams = {
-        allowedMethods,
-        expiry,
-        metaData: metadata,
-        publicSessionKey: sessionKey.publicKey,
-      }
-
-      const account = new Account(
-        new RpcProvider(),
-        stark.randomAddress(),
-        ec.starkCurve.utils.randomPrivateKey(),
-      )
-
-      vi.spyOn(account, "signMessage").mockImplementation(async () => [
-        "0x123",
-        "0x456",
-      ])
-
-      const accountSessionSignature = await openSession({
-        account,
-        sessionParams,
-        chainId,
-      })
-
-      expect(accountSessionSignature).not.toBeNull()
-      expect(accountSessionSignature).toStrictEqual(["0x123", "0x456"])
-    }) */
-
+  describe("createSession", () => {
     it("should open a session using wallet rpc methods", async () => {
-      const sessionParams: SessionParams = {
+      const sessionParams: CreateSessionParams = {
         allowedMethods,
         expiry,
         metaData: metadata,
-        publicSessionKey: sessionKey.publicKey,
+        sessionKey,
       }
 
-      const accountSessionSignature = await openSession({
+      const accountSessionSignature = await createSession({
+        address: "0x1234567890abcdef",
         wallet: walletMock as StarknetWindowObject,
         sessionParams,
         chainId,
@@ -206,18 +168,24 @@ describe("Utils", () => {
 
       expect(accountSessionSignature).not.toBeNull()
       expect(accountSessionSignature).toStrictEqual({
-        accountSessionSignature: ["0x123", "0x456"],
-        offchainSession: {
-          allowed_methods: [
-            {
-              "Contract Address": contractAddress,
-              selector: "some_method",
-            },
-          ],
-          expires_at: 1234567890,
-          metadata: `{"projectID":"test","txFees":[{"tokenAddress":"${tokenAddress}","maxAmount":"1000000000000"}]}`,
-          session_key_guid:
-            "0x4bef97e579cdb4c9fa3546db3017a69ddbc40598cd7311359f1e6c03f02b155",
+        sessionKeyGuid:
+          "0x4bef97e579cdb4c9fa3546db3017a69ddbc40598cd7311359f1e6c03f02b155",
+        hash: "0x87f8341a9fb39398e15dec07024475dd96406fe4880b9a24d10fb9e6bbf6bd",
+        version: "0x31",
+        address: "0x1234567890abcdef",
+        chainId: "0x534e5f5345504f4c4941",
+        expiresAt: 1234567890,
+        allowedMethods: [
+          {
+            "Contract Address": contractAddress,
+            selector: "some_method",
+          },
+        ],
+        metadata: `{"projectID":"test","txFees":[{"tokenAddress":"${tokenAddress}","maxAmount":"1000000000000"}]}`,
+        authorisationSignature: ["0x123", "0x456"],
+        sessionKey: {
+          privateKey: new Uint8Array([1, 2, 3, 4, 5]),
+          publicKey: "0x1234567890abcdef",
         },
       })
     })
@@ -240,14 +208,25 @@ describe("Utils", () => {
       const chainId = constants.StarknetChainId.SN_SEPOLIA
       vi.spyOn(provider, "getChainId").mockImplementation(async () => chainId)
 
+      const sessionTypedData = getSessionTypedData(offchainSession, chainId)
+
       const result = await buildSessionAccount({
-        useCacheAuthorisation,
-        accountSessionSignature,
-        offchainSession,
-        provider,
-        chainId,
-        address,
+        session: {
+          authorisationSignature: accountSessionSignature,
+          address,
+          chainId,
+          allowedMethods,
+          expiresAt: offchainSession.expires_at,
+          metadata: offchainSession.metadata,
+          sessionKeyGuid: sessionKey.publicKey,
+          hash: typedData.getMessageHash(sessionTypedData, address),
+          version: shortString.encodeShortString("1"),
+          sessionKey,
+        },
+
         sessionKey,
+        useCacheAuthorisation,
+        provider,
       })
 
       expect(result).toBeInstanceOf(Account)
