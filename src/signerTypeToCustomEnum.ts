@@ -1,5 +1,5 @@
 import { CairoCustomEnum } from "starknet"
-import { SignerType } from "./sessionTypes"
+import { SignerType } from "./session.types"
 
 const signerTypeToCustomEnum = (
   signerType: SignerType,
