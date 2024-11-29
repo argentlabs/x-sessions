@@ -1,14 +1,15 @@
 import { HttpResponse, http } from "msw"
 import { setupServer } from "msw/node"
-import { constants, stark } from "starknet"
+import { constants, ec, stark } from "starknet"
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest"
-import {
-  OutsideExecution,
-  getOutsideExecutionTypedData,
-} from "../outsideExecution"
-import { ArgentSessionService } from "../argentSessionService"
-import { ArgentServiceSignatureResponse } from "../sessionTypes"
+import { buildOutsideExecutionTypedData } from "../outsideExecution"
+import { OutsideExecution } from "../outsideExecution.types"
+import { ArgentServiceSignatureResponse, SessionKey } from "../session.types"
 import { getSessionTypedData } from "../utils"
+import {
+  argentSignSessionEFO,
+  argentSignTxAndSession,
+} from "../argentBackendUtils"
 
 export const restHandlers = [
   http.post("http://localhost:3000/cosigner/signSession", () => {
@@ -34,14 +35,6 @@ export const restHandlers = [
 const server = setupServer(...restHandlers)
 
 describe("ArgentSessionService", () => {
-  const pubkey = "0x1234567890abcdef"
-  const accountSessionSignature = ["123", "456"]
-  const service = new ArgentSessionService(
-    pubkey,
-    accountSessionSignature,
-    "http://localhost:3000",
-  )
-
   // Start server before all tests
   beforeAll(() => server.listen())
 
@@ -52,7 +45,7 @@ describe("ArgentSessionService", () => {
   afterEach(() => server.resetHandlers())
 
   describe("signTxAndSession", () => {
-    it("should sign the transactions and session and return a argent service signature response", async () => {
+    it.only("should sign the transactions and session and return a argent service signature response", async () => {
       const cacheAuthorisation = false
 
       const sessionRequest = {
@@ -78,10 +71,20 @@ describe("ArgentSessionService", () => {
         constants.StarknetChainId.SN_SEPOLIA,
       )
 
+      const sessionPrivateKey = ec.starkCurve.utils.randomPrivateKey()
+      const sessionPublicKey = ec.starkCurve.getStarkKey(sessionPrivateKey)
+      const sessionKey: SessionKey = {
+        privateKey: sessionPrivateKey,
+        publicKey: sessionPublicKey,
+      }
+
       const response: ArgentServiceSignatureResponse =
-        await service.signTxAndSession(
-          [],
-          {
+        await argentSignTxAndSession({
+          argentSessionServiceBaseUrl: "http://localhost:3000",
+          authorisationSignature: ["123", "456"],
+          sessionKey,
+          calls: [],
+          transactionsDetail: {
             cairoVersion: "1",
             chainId: constants.StarknetChainId.SN_SEPOLIA,
             maxFee: 1000n,
@@ -90,9 +93,9 @@ describe("ArgentSessionService", () => {
             walletAddress: stark.randomAddress(),
           },
           sessionTypedData,
-          [10n, 20n],
+          sessionSignature: [10n, 20n],
           cacheAuthorisation,
-        )
+        })
 
       expect(response).toEqual({
         publicKey: "0x123",
@@ -105,7 +108,7 @@ describe("ArgentSessionService", () => {
   })
 
   describe("signOutsideTxAndSession", () => {
-    it("should sign the outside session and return an argent session signature response", async () => {
+    it.only("should sign the outside session and return an argent session signature response", async () => {
       const sessionTokenToSign = {
         expires_at: 1234567890,
         allowed_methods: [
@@ -156,15 +159,28 @@ describe("ArgentSessionService", () => {
       const chainId: constants.StarknetChainId =
         constants.StarknetChainId.SN_SEPOLIA
 
+      const sessionPrivateKey = ec.starkCurve.utils.randomPrivateKey()
+      const sessionPublicKey = ec.starkCurve.getStarkKey(sessionPrivateKey)
+      const sessionKey: SessionKey = {
+        privateKey: sessionPrivateKey,
+        publicKey: sessionPublicKey,
+      }
+
       const response: ArgentServiceSignatureResponse =
-        await service.signSessionEFO(
-          sessionTokenToSign,
+        await argentSignSessionEFO({
           accountAddress,
-          getOutsideExecutionTypedData(outsideExecution, chainId),
-          [123n, 456n],
-          false,
+          authorisationSignature: ["123", "456"],
+          argentSessionServiceBaseUrl: "http://localhost:3000",
+          cacheAuthorisation: false,
           chainId,
-        )
+          currentTypedData: buildOutsideExecutionTypedData({
+            outsideExecution,
+            chainId,
+          }),
+          sessionKey,
+          sessionSignature: [10n, 20n],
+          sessionTokenToSign,
+        })
 
       expect(response).toStrictEqual({
         publicKey: "0x123",

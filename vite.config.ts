@@ -27,10 +27,11 @@ export default defineConfig({
     dts({
       entryRoot: resolvePath(__dirname, "src"),
       insertTypesEntry: true,
+      exclude: "**/__tests__/**",
     }),
   ],
 
-  /* esbuild: {
+  esbuild: {
     pure: process.env.NODE_ENV === "production" ? ["console.log"] : [],
-  }, */
+  },
 })
