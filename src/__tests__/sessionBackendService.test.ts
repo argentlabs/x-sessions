@@ -45,7 +45,7 @@ describe("ArgentSessionService", () => {
   afterEach(() => server.resetHandlers())
 
   describe("signTxAndSession", () => {
-    it.only("should sign the transactions and session and return a argent service signature response", async () => {
+    it("should sign the transactions and session and return a argent service signature response", async () => {
       const cacheAuthorisation = false
 
       const sessionRequest = {
@@ -108,7 +108,7 @@ describe("ArgentSessionService", () => {
   })
 
   describe("signOutsideTxAndSession", () => {
-    it.only("should sign the outside session and return an argent session signature response", async () => {
+    it("should sign the outside session and return an argent session signature response", async () => {
       const sessionTokenToSign = {
         expires_at: 1234567890,
         allowed_methods: [
