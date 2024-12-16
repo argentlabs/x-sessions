@@ -161,7 +161,7 @@ describe("Utils", () => {
 
       const accountSessionSignature = await createSession({
         address: "0x1234567890abcdef",
-        wallet: walletMock as StarknetWindowObject,
+        authorisationSignature: ["0x123", "0x456"],
         sessionParams,
         chainId,
       })

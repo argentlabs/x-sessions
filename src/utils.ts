@@ -1,9 +1,13 @@
+import { StarknetDomain, TypedData } from "@starknet-io/types-js"
 import {
-  StarknetDomain,
-  StarknetWindowObject,
-  TypedData,
-} from "@starknet-io/types-js"
-import { Account, constants, ec, hash, shortString, typedData } from "starknet"
+  Account,
+  constants,
+  ec,
+  hash,
+  shortString,
+  Signature,
+  typedData,
+} from "starknet"
 import { SessionAccount } from "./SessionAccount"
 import {
   AllowedMethod,
@@ -111,9 +115,39 @@ const buildSessionAccount = async ({
   })
 }
 
+interface CreateSessionTypedDataParams {
+  chainId: constants.StarknetChainId
+  sessionParams: CreateSessionParams
+}
+
+const createSessionTypedData = ({
+  chainId,
+  sessionParams,
+}: CreateSessionTypedDataParams) => {
+  const {
+    allowedMethods,
+    expiry = BigInt(Date.now()) + 10000n,
+    sessionKey,
+    metaData,
+  } = sessionParams
+
+  if (!sessionKey || !sessionKey.publicKey) {
+    throw new Error("sessionPublicKey is required")
+  }
+
+  const offchainSession = createOffchainSession(
+    allowedMethods,
+    expiry,
+    metaData,
+    sessionKey.publicKey,
+  )
+
+  return getSessionTypedData(offchainSession, chainId)
+}
+
 interface SignSessionMessageParams {
   address: string
-  wallet: StarknetWindowObject
+  authorisationSignature: Signature
   sessionParams: CreateSessionParams
   chainId: constants.StarknetChainId
 }
@@ -123,7 +157,7 @@ interface SignSessionMessageParams {
  *
  * @param {Object} params - The parameters for creating the session.
  * @param {string} params.address - The address of the user.
- * @param {StarknetWindowObject} params.wallet - The wallet object for signing the session.
+ * @param {Signature} params.authorisationSignature - The session signature.
  * @param {CreateSessionParams} params.sessionParams - The parameters for the session.
  * @param {constants.StarknetChainId} params.chainId - The chain ID for the session.
  * @returns {Promise<Session>} A promise that resolves to the created session.
@@ -131,7 +165,7 @@ interface SignSessionMessageParams {
  */
 const createSession = async ({
   address,
-  wallet,
+  authorisationSignature,
   sessionParams,
   chainId,
 }: SignSessionMessageParams): Promise<Session> => {
@@ -154,11 +188,6 @@ const createSession = async ({
   )
 
   const sessionTypedData = getSessionTypedData(offchainSession, chainId)
-
-  const authorisationSignature = await wallet.request({
-    type: "wallet_signTypedData",
-    params: sessionTypedData,
-  })
 
   const session: Session = {
     authorisationSignature,
@@ -208,6 +237,7 @@ export {
   buildSessionAccount,
   createOffchainSession,
   createSession,
+  createSessionTypedData,
   getSessionDomain,
   getSessionTypedData,
   sessionTypes,
