@@ -1,9 +1,13 @@
+import { StarknetDomain, TypedData } from "@starknet-io/types-js"
 import {
-  StarknetDomain,
-  StarknetWindowObject,
-  TypedData,
-} from "@starknet-io/types-js"
-import { Account, constants, ec, hash, shortString, typedData } from "starknet"
+  Account,
+  constants,
+  ec,
+  hash,
+  shortString,
+  Signature,
+  typedData,
+} from "starknet"
 import { SessionAccount } from "./SessionAccount"
 import {
   AllowedMethod,
@@ -11,6 +15,7 @@ import {
   CreateSessionParams,
   OffChainSession,
   Session,
+  SessionKey,
   SessionMetadata,
   VerifySessionParams,
 } from "./session.types"
@@ -111,30 +116,29 @@ const buildSessionAccount = async ({
   })
 }
 
-interface SignSessionMessageParams {
-  address: string
-  wallet: StarknetWindowObject
-  sessionParams: CreateSessionParams
+interface CreateSessionRequestParams {
   chainId: constants.StarknetChainId
+  sessionParams: CreateSessionParams
 }
 
+interface SessionRequest {
+  sessionTypedData: TypedData
+  offchainSession: OffChainSession
+  sessionKey: SessionKey
+}
 /**
- * Creates a new session.
+ * Creates a new session request.
  *
- * @param {Object} params - The parameters for creating the session.
- * @param {string} params.address - The address of the user.
- * @param {StarknetWindowObject} params.wallet - The wallet object for signing the session.
- * @param {CreateSessionParams} params.sessionParams - The parameters for the session.
+ * @param {Object} params - The parameters for creating the session request.
  * @param {constants.StarknetChainId} params.chainId - The chain ID for the session.
- * @returns {Promise<Session>} A promise that resolves to the created session.
+ * @param {CreateSessionParams} params.sessionParams - The parameters for the session.
+ * @returns {Object} The session typed data and the offchain session object.
  * @throws {Error} If the sessionPublicKey is not provided.
  */
-const createSession = async ({
-  address,
-  wallet,
-  sessionParams,
+const createSessionRequest = ({
   chainId,
-}: SignSessionMessageParams): Promise<Session> => {
+  sessionParams,
+}: CreateSessionRequestParams): SessionRequest => {
   const {
     allowedMethods,
     expiry = BigInt(Date.now()) + 10000n,
@@ -153,12 +157,42 @@ const createSession = async ({
     sessionKey.publicKey,
   )
 
-  const sessionTypedData = getSessionTypedData(offchainSession, chainId)
+  return {
+    sessionTypedData: getSessionTypedData(offchainSession, chainId),
+    offchainSession,
+    sessionKey,
+  }
+}
 
-  const authorisationSignature = await wallet.request({
-    type: "wallet_signTypedData",
-    params: sessionTypedData,
-  })
+interface SignSessionMessageParams {
+  address: string
+  authorisationSignature: Signature
+  sessionRequest: SessionRequest
+  chainId: constants.StarknetChainId
+}
+
+/**
+ * Creates a new session.
+ *
+ * @param {Object} params - The parameters for creating the session.
+ * @param {string} params.address - The address of the user.
+ * @param {Signature} params.authorisationSignature - The session signature.
+ * @param {SessionRequest} params.sessionRequest - The session request.
+ * @param {constants.StarknetChainId} params.chainId - The chain ID for the session.
+ * @returns {Promise<Session>} A promise that resolves to the created session.
+ * @throws {Error} If the sessionPublicKey is not provided.
+ */
+const createSession = async ({
+  address,
+  authorisationSignature,
+  sessionRequest,
+  chainId,
+}: SignSessionMessageParams): Promise<Session> => {
+  const { sessionKey, sessionTypedData, offchainSession } = sessionRequest
+
+  if (!sessionKey || !sessionKey.publicKey) {
+    throw new Error("sessionPublicKey is required")
+  }
 
   const session: Session = {
     authorisationSignature,
@@ -208,6 +242,7 @@ export {
   buildSessionAccount,
   createOffchainSession,
   createSession,
+  createSessionRequest,
   getSessionDomain,
   getSessionTypedData,
   sessionTypes,
