@@ -94,12 +94,24 @@ const sessionParams: CreateSessionParams = {
   }
 }
 
+// create the session request to get the typed data to be signed
+const sessionRequest = createSessionRequest({
+  sessionParams,
+  chainId
+})
+
+// wallet is a StarknetWindowObject
+const authorisationSignature = await wallet.request({
+  type: "wallet_signTypedData",
+  params: sessionRequest.sessionTypedData
+})
+
 // open session and sign message
 const session = await createSession({
-  wallet, // StarknetWindowObject
+  sessionRequest, // SessionRequest
   address, // Account address
   chainId, // StarknetChainId
-  sessionParams // CreateSessionParams
+  authorisationSignature // Signature
 })
 
 const sessionAccount = await buildSessionAccount({
@@ -165,11 +177,24 @@ const sessionParams: CreateSessionParams = {
   }
 }
 
+// create the session request to get the typed data to be signed
+const sessionRequest = createSessionRequest({
+  sessionParams,
+  chainId
+})
+
+// wallet is a StarknetWindowObject
+const authorisationSignature = await wallet.request({
+  type: "wallet_signTypedData",
+  params: sessionRequest.sessionTypedData
+})
+
+// open session and sign message
 const session = await createSession({
-  wallet, // StarknetWindowObject
+  sessionRequest, // SessionRequest
   address, // Account address
   chainId, // StarknetChainId
-  sessionParams // CreateSessionParams
+  authorisationSignature // Signature
 })
 
 const sessionAccount = await buildSessionAccount({
