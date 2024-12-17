@@ -20,6 +20,7 @@ import {
   getSessionDomain,
   getSessionTypedData,
   createSession,
+  createSessionRequest,
 } from "../utils"
 
 type WalletMock = Pick<StarknetWindowObject, "request">
@@ -159,15 +160,25 @@ describe("Utils", () => {
         sessionKey,
       }
 
-      const accountSessionSignature = await createSession({
-        address: "0x1234567890abcdef",
-        authorisationSignature: ["0x123", "0x456"],
+      const sessionRequest = createSessionRequest({
+        chainId,
         sessionParams,
+      })
+
+      const authorisationSignature = await walletMock.request({
+        type: "wallet_signTypedData",
+        params: sessionRequest.sessionTypedData,
+      })
+
+      const session = await createSession({
+        address: "0x1234567890abcdef",
+        authorisationSignature,
+        sessionRequest,
         chainId,
       })
 
-      expect(accountSessionSignature).not.toBeNull()
-      expect(accountSessionSignature).toStrictEqual({
+      expect(session).not.toBeNull()
+      expect(session).toStrictEqual({
         sessionKeyGuid:
           "0x4bef97e579cdb4c9fa3546db3017a69ddbc40598cd7311359f1e6c03f02b155",
         hash: "0x87f8341a9fb39398e15dec07024475dd96406fe4880b9a24d10fb9e6bbf6bd",
