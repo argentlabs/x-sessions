@@ -15,6 +15,7 @@ import {
   CreateSessionParams,
   OffChainSession,
   Session,
+  SessionKey,
   SessionMetadata,
   VerifySessionParams,
 } from "./session.types"
@@ -115,15 +116,29 @@ const buildSessionAccount = async ({
   })
 }
 
-interface CreateSessionTypedDataParams {
+interface CreateSessionRequestParams {
   chainId: constants.StarknetChainId
   sessionParams: CreateSessionParams
 }
 
-const createSessionTypedData = ({
+interface SessionRequest {
+  sessionTypedData: TypedData
+  offchainSession: OffChainSession
+  sessionKey: SessionKey
+}
+/**
+ * Creates a new session request.
+ *
+ * @param {Object} params - The parameters for creating the session request.
+ * @param {constants.StarknetChainId} params.chainId - The chain ID for the session.
+ * @param {CreateSessionParams} params.sessionParams - The parameters for the session.
+ * @returns {Object} The session typed data and the offchain session object.
+ * @throws {Error} If the sessionPublicKey is not provided.
+ */
+const createSessionRequest = ({
   chainId,
   sessionParams,
-}: CreateSessionTypedDataParams) => {
+}: CreateSessionRequestParams): SessionRequest => {
   const {
     allowedMethods,
     expiry = BigInt(Date.now()) + 10000n,
@@ -142,13 +157,17 @@ const createSessionTypedData = ({
     sessionKey.publicKey,
   )
 
-  return getSessionTypedData(offchainSession, chainId)
+  return {
+    sessionTypedData: getSessionTypedData(offchainSession, chainId),
+    offchainSession,
+    sessionKey,
+  }
 }
 
 interface SignSessionMessageParams {
   address: string
   authorisationSignature: Signature
-  sessionParams: CreateSessionParams
+  sessionRequest: SessionRequest
   chainId: constants.StarknetChainId
 }
 
@@ -158,7 +177,7 @@ interface SignSessionMessageParams {
  * @param {Object} params - The parameters for creating the session.
  * @param {string} params.address - The address of the user.
  * @param {Signature} params.authorisationSignature - The session signature.
- * @param {CreateSessionParams} params.sessionParams - The parameters for the session.
+ * @param {SessionRequest} params.sessionRequest - The session request.
  * @param {constants.StarknetChainId} params.chainId - The chain ID for the session.
  * @returns {Promise<Session>} A promise that resolves to the created session.
  * @throws {Error} If the sessionPublicKey is not provided.
@@ -166,28 +185,14 @@ interface SignSessionMessageParams {
 const createSession = async ({
   address,
   authorisationSignature,
-  sessionParams,
+  sessionRequest,
   chainId,
 }: SignSessionMessageParams): Promise<Session> => {
-  const {
-    allowedMethods,
-    expiry = BigInt(Date.now()) + 10000n,
-    sessionKey,
-    metaData,
-  } = sessionParams
+  const { sessionKey, sessionTypedData, offchainSession } = sessionRequest
 
   if (!sessionKey || !sessionKey.publicKey) {
     throw new Error("sessionPublicKey is required")
   }
-
-  const offchainSession = createOffchainSession(
-    allowedMethods,
-    expiry,
-    metaData,
-    sessionKey.publicKey,
-  )
-
-  const sessionTypedData = getSessionTypedData(offchainSession, chainId)
 
   const session: Session = {
     authorisationSignature,
@@ -237,7 +242,7 @@ export {
   buildSessionAccount,
   createOffchainSession,
   createSession,
-  createSessionTypedData,
+  createSessionRequest,
   getSessionDomain,
   getSessionTypedData,
   sessionTypes,
