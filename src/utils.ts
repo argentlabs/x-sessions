@@ -116,12 +116,12 @@ const buildSessionAccount = async ({
   })
 }
 
-interface CreateSessionRequestParams {
+export interface CreateSessionRequestParams {
   chainId: constants.StarknetChainId
   sessionParams: CreateSessionParams
 }
 
-interface SessionRequest {
+export interface SessionRequest {
   sessionTypedData: TypedData
   offchainSession: OffChainSession
   sessionKey: SessionKey
