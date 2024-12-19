@@ -146,7 +146,6 @@ const createSessionRequest = ({
     sessionKey,
     metaData,
   } = sessionParams
-
   if (!sessionKey || !sessionKey.publicKey) {
     throw new Error("sessionPublicKey is required")
   }
