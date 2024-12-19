@@ -60,14 +60,15 @@ import {
   SignSessionError,
   CreateSessionParams,
   createSession,
-  buildSessionAccount
+  buildSessionAccount,
+  bytesToHexString
 } from "@argent/x-sessions"
 import { ec } from "starknet"
 
 const privateKey = ec.starkCurve.utils.randomPrivateKey()
 
 const sessionKey: SessionKey = {
-  privateKey,
+  privateKey: bytesToHexString(privateKey),
   publicKey: ec.starkCurve.getStarkKey(privateKey)
 }
 
@@ -150,7 +151,7 @@ This package expose a method in order to get the Call required to perform an exe
 const privateKey = ec.starkCurve.utils.randomPrivateKey()
 
 const sessionKey: SessionKey = {
-  privateKey,
+  privateKey: bytesToHexString(privateKey),
   publicKey: ec.starkCurve.getStarkKey(privateKey)
 }
 

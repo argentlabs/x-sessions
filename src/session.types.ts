@@ -69,7 +69,7 @@ export type CreateSessionParams = {
 
 export type SessionKey = {
   publicKey: string
-  privateKey: Uint8Array
+  privateKey: string
 }
 
 export type BuildSessionAccountParams = {

@@ -144,7 +144,7 @@ export const createOutsideExecutionCall = async ({
   const outsideExecutionTypedData = buildOutsideExecutionTypedData({
     outsideExecution,
     chainId: session.chainId,
-    version: version || "1",
+    version: version || "2", // version, set as "2" because of a bug in x-sessions where default was wrongly set to "1"
   })
 
   const signature = await signOutsideExecution({
