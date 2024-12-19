@@ -3,6 +3,7 @@ import {
   Account,
   constants,
   ec,
+  encode,
   hash,
   shortString,
   Signature,
@@ -238,6 +239,29 @@ const verifySession = ({
   )
 }
 
+/**
+ * Converts a byte array to a hex string.
+ * @param bytes The byte array to convert.
+ * @returns The hex string.
+ */
+const bytesToHexString = (bytes: Uint8Array): string => {
+  return encode.addHexPrefix(encode.buf2hex(bytes))
+}
+
+/**
+ * Converts a hex string to a byte array.
+ * @param hexString The hex string to convert.
+ * @returns The byte array.
+ */
+const hexStringToBytes = (hexString: string): Uint8Array => {
+  const hex = encode.removeHexPrefix(hexString)
+  const hexArray = hex.match(/.{1,2}/g)
+  if (!hexArray) {
+    throw new Error("Invalid hex string")
+  }
+  return Uint8Array.from(hexArray.map((byte) => parseInt(byte, 16)))
+}
+
 export {
   buildSessionAccount,
   createOffchainSession,
@@ -247,4 +271,6 @@ export {
   getSessionTypedData,
   sessionTypes,
   verifySession,
+  bytesToHexString,
+  hexStringToBytes,
 }
