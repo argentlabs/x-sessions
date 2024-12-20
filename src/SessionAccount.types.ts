@@ -5,6 +5,7 @@ import {
   ProviderInterface,
 } from "starknet"
 import { Session } from "./session.types"
+import { Network } from "./outsideExecution.types"
 
 export interface GetAccountWithSessionSignerParams {
   provider: ProviderInterface
@@ -20,4 +21,5 @@ export interface GetSessionSignatureForTransactionParams {
   accountAddress: string
   invocationSignerDetails: InvocationsSignerDetails
   cacheAuthorisation: boolean
+  network?: Network
 }

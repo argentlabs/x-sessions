@@ -22,6 +22,7 @@ import {
   SessionKey,
 } from "./session.types"
 import { getSessionTypedData } from "./utils"
+import { Network } from "./outsideExecution.types"
 
 interface ArgentSignTxAndSessionParams {
   sessionKey: SessionKey
@@ -154,6 +155,7 @@ interface ArgentSignSessionEFOParams {
   sessionSignature: bigint[]
   cacheAuthorisation: boolean
   chainId: constants.StarknetChainId
+  network?: Network
 }
 
 export const argentSignSessionEFO = async ({
@@ -166,6 +168,7 @@ export const argentSignSessionEFO = async ({
   sessionSignature,
   cacheAuthorisation,
   chainId,
+  network = "mainnet",
 }: ArgentSignSessionEFOParams): Promise<ArgentServiceSignatureResponse> => {
   const sessionMessageHash = typedData.getMessageHash(
     getSessionTypedData(sessionTokenToSign, chainId),
@@ -193,6 +196,7 @@ export const argentSignSessionEFO = async ({
     accountAddress,
     chain: "starknet",
     message: currentTypedData,
+    network,
   }
 
   const body = {

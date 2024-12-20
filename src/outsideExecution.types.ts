@@ -1,4 +1,4 @@
-import { Session, SessionKey } from "dist/sessionTypes"
+import { Session, SessionKey } from "./session.types"
 import {
   ArraySignatureType,
   BigNumberish,
@@ -7,6 +7,8 @@ import {
   RawArgs,
   TypedData,
 } from "starknet"
+
+export type Network = "mainnet" | "sepolia"
 
 export interface OutsideExecution {
   caller: string
@@ -42,6 +44,7 @@ export interface CreateOutsideExecutionCallParams {
   cacheAuthorisation?: boolean
   calls: Call[]
   outsideExecutionParams?: OutsideExecutionParams
+  network?: Network
 }
 
 export interface BuildOutsideExecutionTypedDataParams {
@@ -57,6 +60,7 @@ export interface CreateOutsideExecutionTypedData {
   cacheAuthorisation?: boolean
   calls: Call[]
   outsideExecutionParams?: OutsideExecutionParams
+  network?: Network
 }
 
 export interface SignOutsideExecutionParams {
@@ -66,4 +70,5 @@ export interface SignOutsideExecutionParams {
   outsideExecutionTypedData: TypedData
   cacheAuthorisation?: boolean
   calls: Call[]
+  network?: Network
 }
