@@ -129,6 +129,7 @@ export const createOutsideExecutionCall = async ({
   calls,
   outsideExecutionParams,
   argentSessionServiceUrl = ARGENT_SESSION_SERVICE_BASE_URL,
+  network = "mainnet",
 }: CreateOutsideExecutionCallParams): Promise<Call> => {
   const { caller, execute_after, execute_before, nonce, version } =
     outsideExecutionParams || {}
@@ -154,6 +155,7 @@ export const createOutsideExecutionCall = async ({
     outsideExecutionTypedData,
     cacheAuthorisation,
     calls,
+    network,
   })
 
   return {
@@ -173,6 +175,7 @@ export const createOutsideExecutionCall = async ({
  * @param {Array<Call>} params.calls - The array of calls to be executed.
  * @param {OutsideExecutionParams} params.outsideExecutionParams - The parameters for the outside execution.
  * @param {string} [params.argentSessionServiceUrl=ARGENT_SESSION_SERVICE_BASE_URL] - The URL of the Argent session service.
+ * @param {string} params.network - The network on which the execution is taking place.
  *
  * @returns {Promise<{ outsideExecutionTypedData: OutsideExecutionTypedData, signature: string }>} The typed data for the outside execution and the signature.
  */
@@ -183,6 +186,7 @@ export const createOutsideExecutionTypedData = async ({
   calls,
   outsideExecutionParams,
   argentSessionServiceUrl = ARGENT_SESSION_SERVICE_BASE_URL,
+  network = "mainnet",
 }: CreateOutsideExecutionTypedData) => {
   const { caller, execute_after, execute_before, nonce, version } =
     outsideExecutionParams || {}
@@ -208,6 +212,7 @@ export const createOutsideExecutionTypedData = async ({
     outsideExecutionTypedData,
     session,
     sessionKey,
+    network,
   })
 
   return {
@@ -249,6 +254,7 @@ export const buildOutsideExecutionTypedData = ({
  * @param {string} [params.argentSessionServiceUrl=ARGENT_SESSION_SERVICE_BASE_URL] - The URL of the Argent session service.
  * @param {boolean} [params.cacheAuthorisation=false] - Flag indicating whether to cache the authorisation.
  * @param {Array<Call>} params.calls - The array of calls to be executed.
+ * @param {string} params.network - The network on which the execution is taking place.
  *
  * @returns {Promise<ArraySignatureType>} The signature.
  */
@@ -259,6 +265,7 @@ export const signOutsideExecution = async ({
   argentSessionServiceUrl = ARGENT_SESSION_SERVICE_BASE_URL,
   cacheAuthorisation = false,
   calls,
+  network = "mainnet",
 }: SignOutsideExecutionParams): Promise<ArraySignatureType> => {
   const sessionRequest: OffChainSession = {
     expires_at: session.expiresAt,
@@ -295,6 +302,7 @@ export const signOutsideExecution = async ({
     sessionSignature,
     cacheAuthorisation,
     chainId: session.chainId,
+    network,
   })
 
   const sessionToken = await compileSessionTokenHelper(

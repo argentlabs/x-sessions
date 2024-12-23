@@ -227,6 +227,7 @@ const { contractAddress, entrypoint, calldata } =
     sessionKey,
     calls: [transferCallData],
     argentSessionServiceUrl: ARGENT_SESSION_SERVICE_BASE_URL
+    network // values "mainnet" | "sepolia", default to "mainnet"
   })
 
 const { signature, outsideExecutionTypedData } =
@@ -235,5 +236,6 @@ const { signature, outsideExecutionTypedData } =
     sessionKey,
     calls: [transferCallData],
     argentSessionServiceUrl: ARGENT_SESSION_SERVICE_BASE_URL
+    network // values "mainnet" | "sepolia", default to "mainnet"
   })
 ```
