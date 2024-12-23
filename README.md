@@ -22,7 +22,7 @@ A demo dapp using both sessions and offchain sessions can be found here [https:/
 
 First you need to have a deployed account. This is the account that will authorise the session and interact with the contracts of your dapp.
 
-To sign the session message the method needed is `openSession`. After the user sign the message, a session account can be created using `buildSessionAccount`.
+To sign the session message the method needed is `createSession`. After the user sign the message, a session account can be created using `buildSessionAccount`.
 
 This example session will allow the dapp to execute an example endpoint on an example contract without asking the user to approve the transaction again. After signing the session the dapp can execute all transactions listed in `allowedMethods` whenever it wants and as many times as it wants.
 
@@ -45,8 +45,8 @@ export type SessionMetadata = {
   projectSignature?: Signature
 }
 
-type SessionParams = {
-  dappKey?: Uint8Array // this is optional. This sdk generate a dappKey using ec.starkCurve.utils.randomPrivateKey() if not provided
+type CreateSessionParams = {
+  sessionKey?: Uint8Array // this is optional. This sdk generate a sessionKey using ec.starkCurve.utils.randomPrivateKey() if not provided
   allowedMethods: AllowedMethod[]
   expiry: bigint
   metaData: SessionMetadata
@@ -58,13 +58,22 @@ The following snippet show how to create and use a session account
 ```typescript
 import {
   SignSessionError,
-  SessionParams,
-  openSession,
-  buildSessionAccount
+  CreateSessionParams,
+  createSession,
+  buildSessionAccount,
+  bytesToHexString
 } from "@argent/x-sessions"
 import { ec } from "starknet"
 
-const sessionParams: SessionParams = {
+const privateKey = ec.starkCurve.utils.randomPrivateKey()
+
+const sessionKey: SessionKey = {
+  privateKey: bytesToHexString(privateKey),
+  publicKey: ec.starkCurve.getStarkKey(privateKey)
+}
+
+const sessionParams: CreateSessionParams = {
+  sessionKey,
   allowedMethods: [
     {
       "Contract Address": contractAddress,
@@ -74,7 +83,7 @@ const sessionParams: SessionParams = {
   expiry: Math.floor(
     (Date.now() + 1000 * 60 * 60 * 24) / 1000
   ) as any, // ie: 1 day
-  dappKey: ec.starkCurve.utils.randomPrivateKey(),
+  sessionKey: ec.starkCurve.utils.randomPrivateKey(),
   metaData: {
     projectID: "test-dapp",
     txFees: [
@@ -86,34 +95,35 @@ const sessionParams: SessionParams = {
   }
 }
 
-// open session and sign message
-const accountSessionSignature = await openSession({
-  wallet, // StarknetWindowObject
-  sessionParams, // SessionParams
-  chainId // StarknetChainId
+// create the session request to get the typed data to be signed
+const sessionRequest = createSessionRequest({
+  sessionParams,
+  chainId
 })
 
-// create the session account from the current one that will be used to submit transactions
-const sessionRequest = createSessionRequest(
-  sessionParams.allowedMethods,
-  sessionParams.expiry,
-  sessionParams.metaData,
-  sessionParams.dappKey
-)
+// wallet is a StarknetWindowObject
+const authorisationSignature = await wallet.request({
+  type: "wallet_signTypedData",
+  params: sessionRequest.sessionTypedData
+})
+
+// open session and sign message
+const session = await createSession({
+  sessionRequest, // SessionRequest
+  address, // Account address
+  chainId, // StarknetChainId
+  authorisationSignature // Signature
+})
 
 const sessionAccount = await buildSessionAccount({
   useCacheAuthorisation: false, // optional and defaulted to false, will be added in future developments
-  accountSessionSignature: stark.formatSignature(
-    accountSessionSignature
-  ),
-  sessionRequest,
-  chainId, // StarknetChainId
+  session,
+  sessionKey,
   provider: new RpcProvider({
     nodeUrl: "https://starknet-sepolia.public.blastapi.io/rpc/v0_7",
     chainId: constants.StarknetChainId.SN_SEPOLIA
   }),
-  address, // account address
-  dappKey
+  argentSessionServiceBaseUrl: ARGENT_SESSION_SERVICE_BASE_URL // Optional: defaulted to mainnet url
 })
 
 try {
@@ -138,24 +148,72 @@ Executing transactions “from outside” allows an account to submit transactio
 This package expose a method in order to get the Call required to perform an execution from outside.
 
 ```typescript
-// instantiate argent session service
-const beService = new ArgentSessionService(
-  dappKey.publicKey,
-  accountSessionSignature
-)
+const privateKey = ec.starkCurve.utils.randomPrivateKey()
 
-// instantiate dapp session service
-const sessionDappService = new SessionDappService(
-  beService,
-  chainId,
-  dappKey
-)
+const sessionKey: SessionKey = {
+  privateKey: bytesToHexString(privateKey),
+  publicKey: ec.starkCurve.getStarkKey(privateKey)
+}
+
+const sessionParams: CreateSessionParams = {
+  sessionKey,
+  allowedMethods: [
+    {
+      "Contract Address": contractAddress,
+      selector: "method_selector"
+    }
+  ],
+  expiry: Math.floor(
+    (Date.now() + 1000 * 60 * 60 * 24) / 1000
+  ) as any, // ie: 1 day
+  sessionKey: ec.starkCurve.utils.randomPrivateKey(),
+  metaData: {
+    projectID: "test-dapp",
+    txFees: [
+      {
+        tokenAddress: ETHTokenAddress,
+        maxAmount: parseUnits("0.1", 18).value.toString()
+      }
+    ]
+  }
+}
+
+// create the session request to get the typed data to be signed
+const sessionRequest = createSessionRequest({
+  sessionParams,
+  chainId
+})
+
+// wallet is a StarknetWindowObject
+const authorisationSignature = await wallet.request({
+  type: "wallet_signTypedData",
+  params: sessionRequest.sessionTypedData
+})
+
+// open session and sign message
+const session = await createSession({
+  sessionRequest, // SessionRequest
+  address, // Account address
+  chainId, // StarknetChainId
+  authorisationSignature // Signature
+})
+
+const sessionAccount = await buildSessionAccount({
+  useCacheAuthorisation: false, // optional and defaulted to false, will be added in future developments
+  session,
+  sessionKey,
+  provider: new RpcProvider({
+    nodeUrl: "https://starknet-sepolia.public.blastapi.io/rpc/v0_7",
+    chainId: constants.StarknetChainId.SN_SEPOLIA
+  }),
+  argentSessionServiceBaseUrl: ARGENT_SESSION_SERVICE_BASE_URL // Optional: defaulted to mainnet url
+})
 
 // example for creating the calldata
 const erc20Contract = new Contract(
   Erc20Abi as Abi,
   ETHTokenAddress,
-  sessionAccount as any
+  sessionAccount
 )
 const calldata = erc20Contract.populate("transfer", {
   recipient: address,
@@ -164,18 +222,20 @@ const calldata = erc20Contract.populate("transfer", {
 
 // get execute from outside data
 const { contractAddress, entrypoint, calldata } =
-  await sessionDappService.getOutsideExecutionCall(
-    sessionRequest,
-    stark.formatSignature(accountSessionSignature),
-    false,
-    [calldata],
-    address, // the account address
-    chainId,
-    shortString.encodeShortString("ANY_CALLER"), // Optional: default value ANY_CALLER
-    execute_after, // Optional: timestamp in seconds - this is the lower value in the range. Default value: 5 mins before Date.now()
-    execute_before, // Optional: timestamp in seconds - this is the upper value in the range. Default value: 20 mins after Date.now()
-    nonce: BigNumberish, // Optional: nonce, default value is a random nonce
-  )
-```
+  await createOutsideExecutionCall({
+    session,
+    sessionKey,
+    calls: [transferCallData],
+    argentSessionServiceUrl: ARGENT_SESSION_SERVICE_BASE_URL
+    network // values "mainnet" | "sepolia", default to "mainnet"
+  })
 
-Another account can then use object `{ contractAddress, entrypoint, calldata }` to execute the transaction.
+const { signature, outsideExecutionTypedData } =
+  await createOutsideExecutionTypedData({
+    session,
+    sessionKey,
+    calls: [transferCallData],
+    argentSessionServiceUrl: ARGENT_SESSION_SERVICE_BASE_URL
+    network // values "mainnet" | "sepolia", default to "mainnet"
+  })
+```
