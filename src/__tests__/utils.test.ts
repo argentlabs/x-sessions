@@ -2,24 +2,25 @@ import {
   Account,
   RpcProvider,
   constants,
-  ec,
   shortString,
   stark,
+  typedData,
 } from "starknet"
 import { StarknetWindowObject } from "@starknet-io/types-js"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
   AllowedMethod,
-  DappKey,
+  SessionKey,
   SessionMetadata,
-  SessionParams,
-} from "../sessionTypes"
+  CreateSessionParams,
+} from "../session.types"
 import {
   buildSessionAccount,
-  createSessionRequest,
+  createOffchainSession,
   getSessionDomain,
   getSessionTypedData,
-  openSession,
+  createSession,
+  createSessionRequest,
 } from "../utils"
 
 type WalletMock = Pick<StarknetWindowObject, "request">
@@ -35,7 +36,8 @@ export const walletMock: WalletMock = {
   },
 }
 
-const contractAddress = stark.randomAddress()
+const contractAddress = "0x123456789"
+const tokenAddress = "0x987654321"
 const allowedMethods: AllowedMethod[] = [
   {
     "Contract Address": contractAddress,
@@ -45,20 +47,20 @@ const allowedMethods: AllowedMethod[] = [
 const expiry = BigInt(1234567890)
 const metadata: SessionMetadata = {
   projectID: "test",
-  txFees: [{ tokenAddress: stark.randomAddress(), maxAmount: "1000000000000" }],
+  txFees: [{ tokenAddress, maxAmount: "1000000000000" }],
 }
 const signerPublicKey = "0x123"
 const chainId = constants.StarknetChainId.SN_SEPOLIA
 
 describe("Utils", () => {
-  let dappKey: DappKey
+  let sessionKey: SessionKey
 
   beforeEach(() => {
-    const privateDappKey = ec.starkCurve.utils.randomPrivateKey()
-    const publicDappKey = ec.starkCurve.getStarkKey(privateDappKey)
-    dappKey = {
-      privateKey: privateDappKey,
-      publicKey: publicDappKey,
+    const privateSessionKey = new Uint8Array([1, 2, 3, 4, 5])
+    const sessionPublicKey = "0x1234567890abcdef"
+    sessionKey = {
+      privateKey: privateSessionKey,
+      publicKey: sessionPublicKey,
     }
   })
 
@@ -125,9 +127,9 @@ describe("Utils", () => {
     })
   })
 
-  describe("createSessionRequest", () => {
+  describe("createOffchainSession", () => {
     it("should return an OffChainSession object", () => {
-      const sessionRequest = createSessionRequest(
+      const sessionRequest = createOffchainSession(
         allowedMethods,
         expiry,
         metadata,
@@ -149,76 +151,61 @@ describe("Utils", () => {
     })
   })
 
-  describe("openSession", () => {
-    it("should throw error if publicDappKey is not provided", async () => {
-      const sessionParams: SessionParams = {
-        allowedMethods,
-        expiry,
-        metaData: metadata,
-        publicDappKey: "",
-      }
-
-      await expect(
-        openSession({
-          wallet: walletMock as StarknetWindowObject,
-          sessionParams,
-          chainId,
-        }),
-      ).rejects.toThrowError("publicDappKey is required")
-    })
-
-    /* it("should open a session using an Account", async () => {
-      const sessionParams: SessionParams = {
-        allowedMethods,
-        expiry,
-        metaData: metadata,
-        publicDappKey: dappKey.publicKey,
-      }
-
-      const account = new Account(
-        new RpcProvider(),
-        stark.randomAddress(),
-        ec.starkCurve.utils.randomPrivateKey(),
-      )
-
-      vi.spyOn(account, "signMessage").mockImplementation(async () => [
-        "0x123",
-        "0x456",
-      ])
-
-      const accountSessionSignature = await openSession({
-        account,
-        sessionParams,
-        chainId,
-      })
-
-      expect(accountSessionSignature).not.toBeNull()
-      expect(accountSessionSignature).toStrictEqual(["0x123", "0x456"])
-    }) */
-
+  describe("createSession", () => {
     it("should open a session using wallet rpc methods", async () => {
-      const sessionParams: SessionParams = {
+      const sessionParams: CreateSessionParams = {
         allowedMethods,
         expiry,
         metaData: metadata,
-        publicDappKey: dappKey.publicKey,
+        sessionKey,
       }
 
-      const accountSessionSignature = await openSession({
-        wallet: walletMock as StarknetWindowObject,
+      const sessionRequest = createSessionRequest({
+        chainId,
         sessionParams,
+      })
+
+      const authorisationSignature = await walletMock.request({
+        type: "wallet_signTypedData",
+        params: sessionRequest.sessionTypedData,
+      })
+
+      const session = await createSession({
+        address: "0x1234567890abcdef",
+        authorisationSignature,
+        sessionRequest,
         chainId,
       })
 
-      expect(accountSessionSignature).not.toBeNull()
-      expect(accountSessionSignature).toStrictEqual(["0x123", "0x456"])
+      expect(session).not.toBeNull()
+      expect(session).toStrictEqual({
+        sessionKeyGuid:
+          "0x4bef97e579cdb4c9fa3546db3017a69ddbc40598cd7311359f1e6c03f02b155",
+        hash: "0x87f8341a9fb39398e15dec07024475dd96406fe4880b9a24d10fb9e6bbf6bd",
+        version: "0x31",
+        address: "0x1234567890abcdef",
+        chainId: "0x534e5f5345504f4c4941",
+        expiresAt: 1234567890,
+        allowedMethods: [
+          {
+            "Contract Address": contractAddress,
+            selector: "some_method",
+          },
+        ],
+        metadata: `{"projectID":"test","txFees":[{"tokenAddress":"${tokenAddress}","maxAmount":"1000000000000"}]}`,
+        authorisationSignature: ["0x123", "0x456"],
+        sessionKey: {
+          privateKey: new Uint8Array([1, 2, 3, 4, 5]),
+          publicKey: "0x1234567890abcdef",
+        },
+      })
     })
   })
 
   describe("buildSessionAccount", () => {
     it("should return an Account object", async () => {
       const useCacheAuthorisation = false
-      const sessionRequest = createSessionRequest(
+      const offchainSession = createOffchainSession(
         allowedMethods,
         expiry,
         metadata,
@@ -232,14 +219,25 @@ describe("Utils", () => {
       const chainId = constants.StarknetChainId.SN_SEPOLIA
       vi.spyOn(provider, "getChainId").mockImplementation(async () => chainId)
 
+      const sessionTypedData = getSessionTypedData(offchainSession, chainId)
+
       const result = await buildSessionAccount({
+        session: {
+          authorisationSignature: accountSessionSignature,
+          address,
+          chainId,
+          allowedMethods,
+          expiresAt: offchainSession.expires_at,
+          metadata: offchainSession.metadata,
+          sessionKeyGuid: sessionKey.publicKey,
+          hash: typedData.getMessageHash(sessionTypedData, address),
+          version: shortString.encodeShortString("1"),
+          sessionKey,
+        },
+
+        sessionKey,
         useCacheAuthorisation,
-        accountSessionSignature,
-        sessionRequest,
         provider,
-        chainId,
-        address,
-        dappKey,
       })
 
       expect(result).toBeInstanceOf(Account)
