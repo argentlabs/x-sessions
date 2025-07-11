@@ -69,7 +69,7 @@ export function getOutsideCall(call: Call): OutsideCall {
 
 export function getTypedDataHash(
   outsideExecution: OutsideExecution,
-  accountAddress: num.BigNumberish,
+  accountAddress: BigNumberish,
   chainId: string,
   version: string = "1",
 ): string {
