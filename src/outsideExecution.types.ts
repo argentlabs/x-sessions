@@ -3,7 +3,6 @@ import {
   ArraySignatureType,
   BigNumberish,
   Call,
-  num,
   RawArgs,
   TypedData,
 } from "starknet"
@@ -12,15 +11,15 @@ export type Network = "mainnet" | "sepolia"
 
 export interface OutsideExecution {
   caller: string
-  nonce: num.BigNumberish
-  execute_after: num.BigNumberish
-  execute_before: num.BigNumberish
+  nonce: BigNumberish
+  execute_after: BigNumberish
+  execute_before: BigNumberish
   calls: OutsideCall[]
 }
 
 export interface OutsideCall {
   to: string
-  selector: num.BigNumberish
+  selector: BigNumberish
   calldata: RawArgs
 }
 

@@ -74,7 +74,7 @@
     "minimalistic-assert": "^1.0.1"
   },
   "peerDependencies": {
-    "starknet": "6.11.0"
+    "starknet": "7.5.1"
   },
   "lint-staged": {
     "*": "prettier --ignore-unknown --write",
