@@ -109,10 +109,18 @@ export const argentSignTxAndSession = async ({
           max_price_per_unit:
             txDetailsV3.resourceBounds.l1_gas.max_price_per_unit.toString(),
         },
-        l2_gas: {
-          max_amount: txDetailsV3.resourceBounds.l1_gas.max_amount.toString(),
+        l1_data_gas: {
+          max_amount:
+            txDetailsV3.resourceBounds.l1_data_gas?.max_amount.toString() ||
+            "0",
           max_price_per_unit:
-            txDetailsV3.resourceBounds.l1_gas.max_price_per_unit.toString(),
+            txDetailsV3.resourceBounds.l1_data_gas?.max_price_per_unit.toString() ||
+            "0",
+        },
+        l2_gas: {
+          max_amount: txDetailsV3.resourceBounds.l2_gas.max_amount.toString(),
+          max_price_per_unit:
+            txDetailsV3.resourceBounds.l2_gas.max_price_per_unit.toString(),
         },
       },
       tip: txDetailsV3.tip.toString(),
