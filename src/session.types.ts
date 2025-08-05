@@ -124,6 +124,10 @@ export type ArgentServiceSessionTxV3Body = {
       max_amount: string
       max_price_per_unit: string
     }
+    l1_data_gas?: {
+      max_amount: string
+      max_price_per_unit: string
+    }
   }
   tip: string
   paymaster_data: string[]

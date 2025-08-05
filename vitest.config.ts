@@ -13,6 +13,7 @@ export default mergeConfig(viteConfig, {
     },
     environment: "happy-dom",
     exclude: ["**/node_modules/**", "**/*.mock.ts"],
+    setupFiles: ["./src/__tests__/setup.ts"],
     coverage: {
       exclude: [
         "**/*.mock.ts",

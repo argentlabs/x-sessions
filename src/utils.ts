@@ -1,4 +1,8 @@
-import { StarknetDomain, TypedData } from "@starknet-io/types-js"
+import {
+  StarknetDomain,
+  TypedData,
+  TypedDataRevision,
+} from "@starknet-io/types-js"
 import {
   Account,
   constants,
@@ -43,7 +47,7 @@ const sessionTypes = {
 export const ALLOWED_METHOD_HASH = typedData.getTypeHash(
   sessionTypes,
   "Allowed Method",
-  typedData.TypedDataRevision.ACTIVE,
+  TypedDataRevision.ACTIVE,
 )
 
 // WARNING! Revision is encoded as a number in the StarkNetDomain type and not as shortstring
