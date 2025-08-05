@@ -203,11 +203,12 @@ const sessionAccount = await buildSessionAccount({
   session,
   sessionKey,
   provider: new RpcProvider({
-    nodeUrl: "https://starknet-sepolia.public.blastapi.io/rpc/v0_7",
+    nodeUrl: "https://starknet-sepolia.public.blastapi.io/rpc/v0_8",
     chainId: constants.StarknetChainId.SN_SEPOLIA
   }),
   argentSessionServiceBaseUrl: ARGENT_SESSION_SERVICE_BASE_URL // Optional: defaulted to mainnet url
 })
+
 
 // example for creating the calldata
 const erc20Contract = new Contract(
@@ -238,4 +239,28 @@ const { signature, outsideExecutionTypedData } =
     argentSessionServiceUrl: ARGENT_SESSION_SERVICE_BASE_URL
     network // values "mainnet" | "sepolia", default to "mainnet"
   })
+```
+
+## Creating a session account with paymaster
+
+[starknetjs paymaster documentation](https://starknetjs.com/docs/guides/paymaster/#overview)
+
+```typescript
+
+const paymasterRpc = new PaymasterRpc({
+  nodeUrl: "node-url,
+  headers: { "api-key": "your-api-key- },
+})
+
+const sessionAccount = await buildSessionAccount({
+  useCacheAuthorisation: false, // optional and defaulted to false, will be added in future developments
+  session,
+  sessionKey,
+  provider: new RpcProvider({
+    nodeUrl: "https://starknet-sepolia.public.blastapi.io/rpc/v0_8",
+    chainId: constants.StarknetChainId.SN_SEPOLIA
+  }),
+  argentSessionServiceBaseUrl: ARGENT_SESSION_SERVICE_BASE_URL, // Optional: defaulted to mainnet url
+  paymasterRpc
+})
 ```

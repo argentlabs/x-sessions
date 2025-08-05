@@ -3,6 +3,7 @@ import {
   BigNumberish,
   CairoCustomEnum,
   Calldata,
+  PaymasterRpc,
   ProviderInterface,
   Signature,
   constants,
@@ -78,6 +79,7 @@ export type BuildSessionAccountParams = {
   provider: ProviderInterface
   useCacheAuthorisation?: boolean
   argentSessionServiceBaseUrl?: string
+  paymasterRpc?: PaymasterRpc
 }
 
 export type ArgentServiceSignatureResponse = {
