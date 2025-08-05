@@ -107,6 +107,7 @@ const buildSessionAccount = async ({
   provider,
   argentSessionServiceBaseUrl,
   useCacheAuthorisation,
+  paymasterRpc,
 }: BuildSessionAccountParams): Promise<Account> => {
   const dappService = new SessionAccount(
     session,
@@ -118,6 +119,7 @@ const buildSessionAccount = async ({
     provider,
     session,
     cacheAuthorisation: useCacheAuthorisation,
+    paymasterRpc,
   })
 }
 

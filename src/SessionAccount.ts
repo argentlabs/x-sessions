@@ -62,6 +62,7 @@ export class SessionAccount {
     provider,
     session,
     cacheAuthorisation = false,
+    paymasterRpc,
   }: GetAccountWithSessionSignerParams) {
     const sessionSigner = new SessionSigner(
       (calls: Call[], invocationSignerDetails: InvocationsSignerDetails) => {
@@ -75,7 +76,14 @@ export class SessionAccount {
       },
     )
 
-    return new Account(provider, session.address, sessionSigner)
+    return new Account(
+      provider,
+      session.address,
+      sessionSigner,
+      undefined,
+      undefined,
+      paymasterRpc,
+    )
   }
 
   private async signTransaction(
