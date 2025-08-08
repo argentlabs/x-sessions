@@ -65,10 +65,14 @@ export const getSessionProofs = (
   return calls.map((call) => {
     const allowedIndex = sessionRequest.allowed_methods.findIndex(
       (allowedMethod) => {
+        const checkEntrypoint = /^0x[0-9a-fA-F]+$/.test(call.entrypoint)
+          ? selector.getSelectorFromName(allowedMethod.selector) ==
+            call.entrypoint
+          : allowedMethod.selector == call.entrypoint
+
         return (
           num.hexToDecimalString(allowedMethod["Contract Address"]) ===
-            num.hexToDecimalString(call.contractAddress) &&
-          allowedMethod.selector == call.entrypoint
+            num.hexToDecimalString(call.contractAddress) && checkEntrypoint
         )
       },
     )
