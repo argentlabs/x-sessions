@@ -5,21 +5,25 @@ import {
   CallData,
   InvocationsSignerDetails,
   RPC,
+  Signature,
+  TypedData,
   V2InvocationsSignerDetails,
   V3InvocationsSignerDetails,
+  constants,
   hash,
   shortString,
   stark,
   transaction,
 } from "starknet"
-import { argentSignTxAndSession } from "./argentBackendUtils"
-import { ARGENT_SESSION_SERVICE_BASE_URL } from "./constants"
-import { OffChainSession, Session, SessionKey } from "./session.types"
 import {
   GetAccountWithSessionSignerParams,
   GetSessionSignatureForTransactionParams,
 } from "./SessionAccount.types"
 import { SessionSigner } from "./SessionSigner"
+import { argentSignTxAndSession } from "./argentBackendUtils"
+import { ARGENT_SESSION_SERVICE_BASE_URL } from "./constants"
+import { signOutsideExecution } from "./outsideExecution"
+import { OffChainSession, Session, SessionKey } from "./session.types"
 import {
   compileSessionHelper,
   compileSessionTokenHelper,
@@ -74,6 +78,9 @@ export class SessionAccount {
           cacheAuthorisation,
         )
       },
+      (typedData: TypedData) => {
+        return this.signMessage(typedData)
+      },
     )
 
     return new Account(
@@ -84,6 +91,30 @@ export class SessionAccount {
       undefined,
       paymasterRpc,
     )
+  }
+
+  private async signMessage(
+    outsideExecutionTypedData: TypedData,
+  ): Promise<Signature> {
+    const calls = (outsideExecutionTypedData.message as any).Calls.map(
+      (call: any) => ({
+        contractAddress: call.To,
+        entrypoint: call.Selector,
+        calldata: call.Calldata,
+      }),
+    )
+
+    return signOutsideExecution({
+      session: this.session,
+      sessionKey: this.sessionKey,
+      outsideExecutionTypedData,
+      argentSessionServiceUrl: this.argentSessionServiceUrl,
+      calls,
+      network:
+        this.session.chainId === constants.StarknetChainId.SN_SEPOLIA
+          ? "sepolia"
+          : "mainnet",
+    })
   }
 
   private async signTransaction(
