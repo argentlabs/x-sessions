@@ -48,22 +48,49 @@ describe("ArgentSessionService", () => {
     it("should sign the transactions and session and return a argent service signature response", async () => {
       const cacheAuthorisation = false
 
+      const contractAddress = stark.randomAddress()
+
       const sessionRequest = {
         expires_at: 1234567890,
         allowed_methods: [
           {
-            "Contract Address": stark.randomAddress(),
+            "Contract Address": contractAddress,
             selector: "set_number_double",
           },
         ],
         metadata: JSON.stringify({
           projectID: "test",
           txFees: [
-            { tokenAddress: stark.randomAddress(), maxAmount: "1000000000000" },
+            { tokenAddress: contractAddress, maxAmount: "1000000000000" },
           ],
         }),
         session_key_guid:
           "0x116dcea0b31d06f721c156324cd8de3652bf8953cd5ba055f74db21b1134ec9",
+        sessionTypedData: undefined as any,
+        offchainSession: {
+          expires_at: 1234567890,
+          allowed_methods: [
+            {
+              "Contract Address": contractAddress,
+              selector: "set_number_double",
+            },
+          ],
+          metadata: JSON.stringify({
+            projectID: "test",
+            txFees: [
+              {
+                tokenAddress: stark.randomAddress(),
+                maxAmount: "1000000000000",
+              },
+            ],
+          }),
+          session_key_guid:
+            "0x116dcea0b31d06f721c156324cd8de3652bf8953cd5ba055f74db21b1134ec9",
+        },
+        sessionKey: {
+          publicKey: "",
+          privateKey: "",
+        },
       }
 
       const sessionTypedData = getSessionTypedData(
@@ -71,12 +98,16 @@ describe("ArgentSessionService", () => {
         constants.StarknetChainId.SN_SEPOLIA,
       )
 
+      sessionRequest.sessionTypedData = sessionTypedData
+
       const sessionPrivateKey = ec.starkCurve.utils.randomPrivateKey()
       const sessionPublicKey = ec.starkCurve.getStarkKey(sessionPrivateKey)
       const sessionKey: SessionKey = {
-        privateKey: sessionPrivateKey,
+        privateKey: sessionPrivateKey.toString(),
         publicKey: sessionPublicKey,
       }
+
+      sessionRequest.sessionKey = sessionKey
 
       const response: ArgentServiceSignatureResponse =
         await argentSignTxAndSession({
@@ -85,11 +116,29 @@ describe("ArgentSessionService", () => {
           sessionKey,
           calls: [],
           transactionsDetail: {
+            tip: 1000n,
+            paymasterData: [],
+            accountDeploymentData: [],
+            nonceDataAvailabilityMode: "L2",
+            feeDataAvailabilityMode: "L2",
+            resourceBounds: {
+              l1_data_gas: {
+                max_amount: 300000n,
+                max_price_per_unit: 10n,
+              },
+              l1_gas: {
+                max_amount: 300000n,
+                max_price_per_unit: 10n,
+              },
+              l2_gas: {
+                max_amount: 300000n,
+                max_price_per_unit: 10n,
+              },
+            },
             cairoVersion: "1",
             chainId: constants.StarknetChainId.SN_SEPOLIA,
-            maxFee: 1000n,
             nonce: 1,
-            version: "0x2",
+            version: "0x3",
             walletAddress: stark.randomAddress(),
           },
           sessionTypedData,
@@ -162,7 +211,7 @@ describe("ArgentSessionService", () => {
       const sessionPrivateKey = ec.starkCurve.utils.randomPrivateKey()
       const sessionPublicKey = ec.starkCurve.getStarkKey(sessionPrivateKey)
       const sessionKey: SessionKey = {
-        privateKey: sessionPrivateKey,
+        privateKey: sessionPrivateKey.toString(),
         publicKey: sessionPublicKey,
       }
 
