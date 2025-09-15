@@ -4,9 +4,8 @@ import {
   Call,
   CallData,
   InvocationsSignerDetails,
-  RPC,
-  V2InvocationsSignerDetails,
   V3InvocationsSignerDetails,
+  ETransactionVersion,
   hash,
   shortString,
   stark,
@@ -75,7 +74,11 @@ export class SessionAccount {
       },
     )
 
-    return new Account(provider, session.address, sessionSigner)
+    return new Account({
+      provider,
+      address: session.address,
+      signer: sessionSigner,
+    })
   }
 
   private async signTransaction(
@@ -91,24 +94,7 @@ export class SessionAccount {
     )
 
     let txHash
-    if (
-      Object.values(RPC.ETransactionVersion2).includes(
-        invocationSignerDetails.version as any,
-      )
-    ) {
-      const invocationsSignerDetailsV2 =
-        invocationSignerDetails as V2InvocationsSignerDetails
-      txHash = hash.calculateInvokeTransactionHash({
-        ...invocationsSignerDetailsV2,
-        senderAddress: invocationsSignerDetailsV2.walletAddress,
-        compiledCalldata,
-        version: invocationsSignerDetailsV2.version,
-      })
-    } else if (
-      Object.values(RPC.ETransactionVersion3).includes(
-        invocationSignerDetails.version as any,
-      )
-    ) {
+    if (ETransactionVersion.V3 === (invocationSignerDetails.version as any)) {
       const invocationsSignerDetailsV3 =
         invocationSignerDetails as V3InvocationsSignerDetails
       txHash = hash.calculateInvokeTransactionHash({

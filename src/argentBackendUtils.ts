@@ -2,10 +2,9 @@ import { TypedData } from "@starknet-io/types-js"
 import {
   Call,
   InvocationsSignerDetails,
-  RPC,
   Signature,
-  V2InvocationsSignerDetails,
   V3InvocationsSignerDetails,
+  ETransactionVersion,
   constants,
   num,
   stark,
@@ -75,26 +74,7 @@ export const argentSignTxAndSession = async ({
     session,
   }
 
-  if (
-    Object.values(RPC.ETransactionVersion2).includes(
-      transactionsDetail.version as any,
-    )
-  ) {
-    const txDetailsV2 = transactionsDetail as V2InvocationsSignerDetails
-
-    body.transaction = {
-      contractAddress: txDetailsV2.walletAddress,
-      calldata: compiledCalldata,
-      maxFee: txDetailsV2.maxFee.toString(),
-      nonce: txDetailsV2.nonce.toString(),
-      version: num.toBigInt(txDetailsV2.version).toString(10),
-      chainId: num.toBigInt(txDetailsV2.chainId).toString(10),
-    }
-  } else if (
-    Object.values(RPC.ETransactionVersion3).includes(
-      transactionsDetail.version as any,
-    )
-  ) {
+  if (ETransactionVersion.V3 === (transactionsDetail.version as any)) {
     const txDetailsV3 = transactionsDetail as V3InvocationsSignerDetails
 
     body.transaction = {
