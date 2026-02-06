@@ -2,7 +2,7 @@ import {
   Account,
   Call,
   RpcProvider,
-  V2InvocationsSignerDetails,
+  V3InvocationsSignerDetails,
   constants,
   ec,
   stark,
@@ -47,7 +47,7 @@ const accountSessionAddress = "0x123456"
 const privateKey = ec.starkCurve.utils.randomPrivateKey()
 
 const sessionKey: SessionKey = {
-  privateKey,
+  privateKey: privateKey.toString(),
   publicKey: ec.starkCurve.getStarkKey(privateKey),
 }
 
@@ -99,13 +99,33 @@ describe("SessionDappService", () => {
   })
 
   it("should signTransaction calling argent session service", async () => {
-    const invokationDetails: V2InvocationsSignerDetails = {
+    const walletAddress = stark.randomAddress()
+
+    const invokationDetails: V3InvocationsSignerDetails = {
+      walletAddress,
+      resourceBounds: {
+        l1_data_gas: {
+          max_amount: 300000n,
+          max_price_per_unit: 10n,
+        },
+        l1_gas: {
+          max_amount: 300000n,
+          max_price_per_unit: 10n,
+        },
+        l2_gas: {
+          max_amount: 300000n,
+          max_price_per_unit: 10n,
+        },
+      },
       cairoVersion: "1",
       chainId: constants.StarknetChainId.SN_SEPOLIA,
-      maxFee: 1000n,
       nonce: 1,
-      version: "0x2",
-      walletAddress: stark.randomAddress(),
+      version: "0x3",
+      tip: 10000n,
+      paymasterData: [],
+      accountDeploymentData: [],
+      nonceDataAvailabilityMode: "L2",
+      feeDataAvailabilityMode: "L2",
     }
 
     const account = new SessionAccount(session, sessionKey)
