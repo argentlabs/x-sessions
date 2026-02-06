@@ -4,7 +4,8 @@
     "hotfix/v[0-9]+.[0-9]+.[0-9]+",
     {
       "name": "develop",
-      "channel": "next"
+      "channel": "next",
+      "prerelease": "next"
     },
     {
       "name": "beta",
@@ -24,9 +25,10 @@
         ],
         "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
       }
-    ],
+    ]
+  ],
+  "addChannel": [
     "@semantic-release/github"
   ],
-  "addChannel": ["@semantic-release/github"],
   "repositoryUrl": "git@github.com:argentlabs/x-sessions.git"
 }
