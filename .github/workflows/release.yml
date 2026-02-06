@@ -30,6 +30,7 @@ jobs:
         with:
           node-version: "lts/*"
           cache: "pnpm"
+          registry-url: "https://registry.npmjs.org"
 
       - name: Install dependencies
         run: pnpm install
@@ -45,4 +46,4 @@ jobs:
         env:
           HUSKY: 0
           GITHUB_TOKEN: ${{ secrets.CI_GITHUB_TOKEN }}
-          NPM_CONFIG_PROVENANCE: false
+          NPM_CONFIG_PROVENANCE: "true"
