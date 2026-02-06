@@ -1,10 +1,9 @@
 {
   "name": "@argent/x-sessions",
-  "version": "9.0.3",
+  "version": "9.0.4",
   "private": false,
   "description": "Manage sessions for Argent X wallets",
   "publishConfig": {
-    "registry": "https://registry.npmjs.org/",
     "access": "public",
     "provenance": true
   },

@@ -27,6 +27,5 @@
     ],
     "@semantic-release/github"
   ],
-  "addChannel": ["@semantic-release/github"],
   "repositoryUrl": "git@github.com:argentlabs/x-sessions.git"
 }
