@@ -1,6 +1,6 @@
 {
   "name": "@argent/x-sessions",
-  "version": "9.0.4",
+  "version": "10.0.0",
   "private": false,
   "description": "Manage sessions for Argent X wallets",
   "publishConfig": {
